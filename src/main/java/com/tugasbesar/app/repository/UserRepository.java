@@ -10,6 +10,8 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class UserRepository {
     private static final String USER_SELECT = "SELECT u.uuid, u.full_name, u.username, u.email, u.password_hash, "
@@ -196,6 +198,38 @@ public class UserRepository {
         }
 
         return null;
+    }
+
+    public List<User> findUsersByRoleKeywords(List<String> roleKeywords) {
+        if (roleKeywords == null || roleKeywords.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        StringBuilder sql = new StringBuilder(USER_SELECT)
+                .append("WHERE u.is_super_admin = 0 AND (");
+        for (int index = 0; index < roleKeywords.size(); index++) {
+            if (index > 0) {
+                sql.append(" OR ");
+            }
+            sql.append("LOWER(r.name) LIKE ?");
+        }
+        sql.append(") ORDER BY u.full_name ASC, u.username ASC");
+
+        List<User> users = new ArrayList<>();
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+            for (int index = 0; index < roleKeywords.size(); index++) {
+                statement.setString(index + 1, "%" + roleKeywords.get(index).toLowerCase() + "%");
+            }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    users.add(mapUser(resultSet));
+                }
+            }
+            return users;
+        } catch (SQLException exception) {
+            throw new RuntimeException("Gagal mengambil data master user.", exception);
+        }
     }
 
     private User mapUser(ResultSet resultSet) throws SQLException {

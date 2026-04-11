@@ -15,12 +15,13 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JTextArea;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableRowSorter;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -42,6 +43,7 @@ public class LevelManagementScreen extends JPanel {
     private static final String CANCEL_ICON = "\u2715";
     private static final String SAVE_ICON = "\u2714";
     private static final String UPDATE_ICON = "\u27F3";
+    private static final String SEARCH_ICON = "\u2315";
 
     private final User currentUser;
     private final AppModule modulePermission;
@@ -49,7 +51,9 @@ public class LevelManagementScreen extends JPanel {
     private final List<Level> levels;
     private final DefaultTableModel tableModel;
     private final JTable levelTable;
+    private final TableRowSorter<DefaultTableModel> rowSorter;
     private final JLabel statusLabel;
+    private final JTextField searchField;
 
     public LevelManagementScreen(User currentUser, AppModule modulePermission) {
         this.currentUser = currentUser;
@@ -58,7 +62,9 @@ public class LevelManagementScreen extends JPanel {
         this.levels = new ArrayList<>();
         this.tableModel = createTableModel();
         this.levelTable = new JTable(tableModel);
+        this.rowSorter = new TableRowSorter<>(tableModel);
         this.statusLabel = new JLabel(" ");
+        this.searchField = new JTextField();
 
         setLayout(new BorderLayout(0, 6));
         setOpaque(false);
@@ -98,6 +104,32 @@ public class LevelManagementScreen extends JPanel {
         actionPanel.add(addButton);
         actionPanel.add(Box.createHorizontalStrut(10));
         actionPanel.add(refreshButton);
+        actionPanel.add(Box.createHorizontalStrut(10));
+        searchField.setPreferredSize(new Dimension(240, 34));
+        searchField.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        searchField.setToolTipText("Cari nama atau deskripsi level");
+        searchField.setText("Cari level...");
+        searchField.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent event) {
+                if ("Cari level...".equals(searchField.getText())) {
+                    searchField.setText("");
+                }
+            }
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent event) {
+                if (searchField.getText() == null || searchField.getText().trim().isEmpty()) {
+                    searchField.setText("Cari level...");
+                }
+            }
+        });
+        searchField.addActionListener(event -> applySearchFilter());
+        actionPanel.add(searchField);
+        actionPanel.add(Box.createHorizontalStrut(8));
+        RoundedButton searchButton = createActionButton(SEARCH_ICON + " Search", new Color(30, 64, 175), 122);
+        searchButton.addActionListener(event -> applySearchFilter());
+        actionPanel.add(searchButton);
 
         statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -136,6 +168,7 @@ public class LevelManagementScreen extends JPanel {
 
     private void configureTable() {
         levelTable.setRowHeight(34);
+        levelTable.setRowSorter(rowSorter);
         levelTable.setFont(new Font("SansSerif", Font.PLAIN, 13));
         levelTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 13));
         levelTable.getTableHeader().setReorderingAllowed(false);
@@ -151,19 +184,20 @@ public class LevelManagementScreen extends JPanel {
         levelTable.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
-                int row = levelTable.rowAtPoint(event.getPoint());
-                int column = levelTable.columnAtPoint(event.getPoint());
-                if (row < 0 || column != 3) {
+                int viewRow = levelTable.rowAtPoint(event.getPoint());
+                int viewColumn = levelTable.columnAtPoint(event.getPoint());
+                if (viewRow < 0 || viewColumn != 3) {
                     return;
                 }
+                int row = levelTable.convertRowIndexToModel(viewRow);
 
                 Level selected = findLevelByUuid(String.valueOf(tableModel.getValueAt(row, 0)));
                 if (selected == null) {
                     return;
                 }
 
-                int cellX = levelTable.getCellRect(row, column, false).x;
-                int cellWidth = levelTable.getCellRect(row, column, false).width;
+                int cellX = levelTable.getCellRect(viewRow, viewColumn, false).x;
+                int cellWidth = levelTable.getCellRect(viewRow, viewColumn, false).width;
                 int relativeX = event.getX() - cellX;
                 if (relativeX < cellWidth / 2) {
                     if (!canUpdate()) {
@@ -189,6 +223,31 @@ public class LevelManagementScreen extends JPanel {
         for (Level level : levels) {
             tableModel.addRow(new Object[]{level.getUuid(), level.getName(), level.getDescription(), ""});
         }
+    }
+
+    private void applySearchFilter() {
+        String text = searchField.getText();
+        String rawKeyword = text == null ? "" : text.trim().toLowerCase();
+        if ("cari level...".equals(rawKeyword)) {
+            rawKeyword = "";
+        }
+        final String keyword = rawKeyword;
+        if (keyword.isEmpty()) {
+            rowSorter.setRowFilter(null);
+            return;
+        }
+        rowSorter.setRowFilter(new javax.swing.RowFilter<DefaultTableModel, Integer>() {
+            @Override
+            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+                for (int col = 1; col <= 2; col++) {
+                    Object value = entry.getValue(col);
+                    if (value != null && value.toString().toLowerCase().contains(keyword)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        });
     }
 
     private Level findLevelByUuid(String uuid) {

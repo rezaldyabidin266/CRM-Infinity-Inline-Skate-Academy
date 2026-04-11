@@ -24,6 +24,7 @@ import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableRowSorter;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -47,6 +48,7 @@ public class UserManagementScreen extends JPanel {
     private static final String CANCEL_ICON = "\u2715";
     private static final String UPDATE_ICON = "\u27F3";
     private static final String SAVE_ICON = "\u2714";
+    private static final String SEARCH_ICON = "\u2315";
 
     private final User currentUser;
     private final AppModule modulePermission;
@@ -55,7 +57,9 @@ public class UserManagementScreen extends JPanel {
     private final List<User> users;
     private final DefaultTableModel tableModel;
     private final JTable userTable;
+    private final TableRowSorter<DefaultTableModel> rowSorter;
     private final JLabel statusLabel;
+    private final JTextField searchField;
 
     public UserManagementScreen(User currentUser, AppModule modulePermission, Runnable sessionRefreshAction) {
         this.currentUser = currentUser;
@@ -65,7 +69,9 @@ public class UserManagementScreen extends JPanel {
         this.users = new ArrayList<>();
         this.tableModel = createTableModel();
         this.userTable = new JTable(tableModel);
+        this.rowSorter = new TableRowSorter<>(tableModel);
         this.statusLabel = new JLabel(" ");
+        this.searchField = new JTextField();
 
         setLayout(new BorderLayout(0, 6));
         setOpaque(false);
@@ -107,6 +113,32 @@ public class UserManagementScreen extends JPanel {
         actionPanel.add(addButton);
         actionPanel.add(Box.createHorizontalStrut(10));
         actionPanel.add(refreshButton);
+        actionPanel.add(Box.createHorizontalStrut(10));
+        searchField.setPreferredSize(new Dimension(240, 34));
+        searchField.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        searchField.setToolTipText("Cari nama, username, email, role, level, status, atau last login");
+        searchField.setText("Cari user...");
+        searchField.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent event) {
+                if ("Cari user...".equals(searchField.getText())) {
+                    searchField.setText("");
+                }
+            }
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent event) {
+                if (searchField.getText() == null || searchField.getText().trim().isEmpty()) {
+                    searchField.setText("Cari user...");
+                }
+            }
+        });
+        searchField.addActionListener(event -> applySearchFilter());
+        actionPanel.add(searchField);
+        actionPanel.add(Box.createHorizontalStrut(8));
+        RoundedButton searchButton = createActionButton(SEARCH_ICON + " Search", new Color(30, 64, 175), 122);
+        searchButton.addActionListener(event -> applySearchFilter());
+        actionPanel.add(searchButton);
 
         statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -147,6 +179,7 @@ public class UserManagementScreen extends JPanel {
 
     private void configureTable() {
         userTable.setRowHeight(34);
+        userTable.setRowSorter(rowSorter);
         userTable.setFont(new Font("SansSerif", Font.PLAIN, 13));
         userTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 13));
         userTable.getTableHeader().setReorderingAllowed(false);
@@ -162,19 +195,20 @@ public class UserManagementScreen extends JPanel {
         userTable.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
-                int row = userTable.rowAtPoint(event.getPoint());
-                int column = userTable.columnAtPoint(event.getPoint());
-                if (row < 0 || column != 8) {
+                int viewRow = userTable.rowAtPoint(event.getPoint());
+                int viewColumn = userTable.columnAtPoint(event.getPoint());
+                if (viewRow < 0 || viewColumn != 8) {
                     return;
                 }
+                int row = userTable.convertRowIndexToModel(viewRow);
 
                 User rowUser = findUserByUuid(String.valueOf(tableModel.getValueAt(row, 0)));
                 if (rowUser == null) {
                     return;
                 }
 
-                int cellX = userTable.getCellRect(row, column, false).x;
-                int cellWidth = userTable.getCellRect(row, column, false).width;
+                int cellX = userTable.getCellRect(viewRow, viewColumn, false).x;
+                int cellWidth = userTable.getCellRect(viewRow, viewColumn, false).width;
                 int relativeX = event.getX() - cellX;
                 if (relativeX < cellWidth / 2) {
                     if (!canUpdate()) {
@@ -216,6 +250,31 @@ public class UserManagementScreen extends JPanel {
             });
         }
 
+    }
+
+    private void applySearchFilter() {
+        String text = searchField.getText();
+        String rawKeyword = text == null ? "" : text.trim().toLowerCase();
+        if ("cari user...".equals(rawKeyword)) {
+            rawKeyword = "";
+        }
+        final String keyword = rawKeyword;
+        if (keyword.isEmpty()) {
+            rowSorter.setRowFilter(null);
+            return;
+        }
+        rowSorter.setRowFilter(new javax.swing.RowFilter<DefaultTableModel, Integer>() {
+            @Override
+            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+                for (int col = 1; col <= 7; col++) {
+                    Object value = entry.getValue(col);
+                    if (value != null && value.toString().toLowerCase().contains(keyword)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        });
     }
 
     private User findUserByUuid(String userUuid) {

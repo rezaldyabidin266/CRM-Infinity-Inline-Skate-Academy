@@ -26,6 +26,7 @@ import javax.swing.table.DefaultTableCellRenderer;
 import javax.swing.table.DefaultTableModel;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableCellRenderer;
+import javax.swing.table.TableRowSorter;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
@@ -50,6 +51,7 @@ public class RoleManagementScreen extends JPanel {
     private static final String CANCEL_ICON = "\u2715";
     private static final String UPDATE_ICON = "\u27F3";
     private static final String SAVE_ICON = "\u2714";
+    private static final String SEARCH_ICON = "\u2315";
 
     private final Runnable sessionRefreshAction;
     private final User currentUser;
@@ -59,7 +61,9 @@ public class RoleManagementScreen extends JPanel {
     private final List<AppModule> modules;
     private final DefaultTableModel tableModel;
     private final JTable roleTable;
+    private final TableRowSorter<DefaultTableModel> rowSorter;
     private final JLabel statusLabel;
+    private final JTextField searchField;
     private Role selectedRole;
 
     public RoleManagementScreen(User currentUser, AppModule modulePermission, Runnable sessionRefreshAction) {
@@ -71,7 +75,9 @@ public class RoleManagementScreen extends JPanel {
         this.modules = new ArrayList<>(roleManagementService.getAllModules());
         this.tableModel = createTableModel();
         this.roleTable = new JTable(tableModel);
+        this.rowSorter = new TableRowSorter<>(tableModel);
         this.statusLabel = new JLabel(" ");
+        this.searchField = new JTextField();
 
         setLayout(new BorderLayout(0, 6));
         setOpaque(false);
@@ -113,6 +119,32 @@ public class RoleManagementScreen extends JPanel {
         actionPanel.add(addButton);
         actionPanel.add(Box.createHorizontalStrut(10));
         actionPanel.add(refreshButton);
+        actionPanel.add(Box.createHorizontalStrut(10));
+        searchField.setPreferredSize(new Dimension(240, 34));
+        searchField.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        searchField.setToolTipText("Cari nama role, deskripsi, atau jumlah module");
+        searchField.setText("Cari role...");
+        searchField.addFocusListener(new java.awt.event.FocusAdapter() {
+            @Override
+            public void focusGained(java.awt.event.FocusEvent event) {
+                if ("Cari role...".equals(searchField.getText())) {
+                    searchField.setText("");
+                }
+            }
+
+            @Override
+            public void focusLost(java.awt.event.FocusEvent event) {
+                if (searchField.getText() == null || searchField.getText().trim().isEmpty()) {
+                    searchField.setText("Cari role...");
+                }
+            }
+        });
+        searchField.addActionListener(event -> applySearchFilter());
+        actionPanel.add(searchField);
+        actionPanel.add(Box.createHorizontalStrut(8));
+        RoundedButton searchButton = createActionButton(SEARCH_ICON + " Search", new Color(30, 64, 175), 122);
+        searchButton.addActionListener(event -> applySearchFilter());
+        actionPanel.add(searchButton);
 
         statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -153,6 +185,7 @@ public class RoleManagementScreen extends JPanel {
 
     private void configureRoleTable() {
         roleTable.setRowHeight(34);
+        roleTable.setRowSorter(rowSorter);
         roleTable.setFont(new Font("SansSerif", Font.PLAIN, 13));
         roleTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 13));
         roleTable.getTableHeader().setReorderingAllowed(false);
@@ -164,19 +197,20 @@ public class RoleManagementScreen extends JPanel {
         roleTable.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
-                int row = roleTable.rowAtPoint(event.getPoint());
-                int column = roleTable.columnAtPoint(event.getPoint());
-                if (row < 0 || column != 3) {
+                int viewRow = roleTable.rowAtPoint(event.getPoint());
+                int viewColumn = roleTable.columnAtPoint(event.getPoint());
+                if (viewRow < 0 || viewColumn != 3) {
                     return;
                 }
+                int row = roleTable.convertRowIndexToModel(viewRow);
 
                 Role role = findRoleByName(String.valueOf(tableModel.getValueAt(row, 0)));
                 if (role == null) {
                     return;
                 }
 
-                int cellX = roleTable.getCellRect(row, column, false).x;
-                int cellWidth = roleTable.getCellRect(row, column, false).width;
+                int cellX = roleTable.getCellRect(viewRow, viewColumn, false).x;
+                int cellWidth = roleTable.getCellRect(viewRow, viewColumn, false).width;
                 int relativeX = event.getX() - cellX;
                 if (relativeX < cellWidth / 2) {
                     if (!canUpdate()) {
@@ -204,6 +238,31 @@ public class RoleManagementScreen extends JPanel {
             int moduleCount = roleManagementService.getModuleCodesByRole(role.getUuid()).size();
             tableModel.addRow(new Object[]{role.getName(), role.getDescription(), moduleCount + " modules", ""});
         }
+    }
+
+    private void applySearchFilter() {
+        String text = searchField.getText();
+        String rawKeyword = text == null ? "" : text.trim().toLowerCase();
+        if ("cari role...".equals(rawKeyword)) {
+            rawKeyword = "";
+        }
+        final String keyword = rawKeyword;
+        if (keyword.isEmpty()) {
+            rowSorter.setRowFilter(null);
+            return;
+        }
+        rowSorter.setRowFilter(new javax.swing.RowFilter<DefaultTableModel, Integer>() {
+            @Override
+            public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
+                for (int col = 0; col <= 2; col++) {
+                    Object value = entry.getValue(col);
+                    if (value != null && value.toString().toLowerCase().contains(keyword)) {
+                        return true;
+                    }
+                }
+                return false;
+            }
+        });
     }
 
     private void reloadRoles() {

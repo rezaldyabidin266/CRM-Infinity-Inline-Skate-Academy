@@ -12,7 +12,10 @@ import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JLabel;
+import javax.swing.JMenu;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
+import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.Icon;
@@ -238,6 +241,12 @@ public class DashboardScreen extends JPanel {
         List<AppModule> orderedModules = new ArrayList<>(user.getAccessibleModules());
         orderedModules.sort((left, right) -> Integer.compare(navOrder(left.getName()), navOrder(right.getName())));
 
+        AppModule userModule = findModuleByName(orderedModules, "User");
+        if (userModule != null) {
+            JButton masterButton = createMasterDropdownButton(userModule);
+            navMenuPanel.add(masterButton);
+        }
+
         for (AppModule module : orderedModules) {
             if ("Dashboard".equalsIgnoreCase(module.getName())) {
                 continue;
@@ -279,6 +288,41 @@ public class DashboardScreen extends JPanel {
             return 5;
         }
         return 50;
+    }
+
+    private AppModule findModuleByName(List<AppModule> modules, String name) {
+        for (AppModule module : modules) {
+            if (name.equalsIgnoreCase(module.getName())) {
+                return module;
+            }
+        }
+        return null;
+    }
+
+    private JButton createMasterDropdownButton(AppModule userModule) {
+        JButton button = createNavButton("MASTER", createNavLabel("\u2630", "Master \u25BE"));
+        JPopupMenu popupMenu = new JPopupMenu();
+        popupMenu.setBorder(BorderFactory.createLineBorder(new Color(148, 163, 184)));
+
+        JMenuItem masterMurid = new JMenuItem("Master Murid");
+        masterMurid.setFont(new Font("SansSerif", Font.BOLD, 13));
+        masterMurid.setIcon(new MenuGlyphIcon("Murid", new Color(14, 116, 144)));
+        masterMurid.setBorder(BorderFactory.createEmptyBorder(6, 4, 6, 10));
+        masterMurid.setIconTextGap(6);
+        masterMurid.addActionListener(event -> openMasterData(userModule, MasterDataScreen.MasterType.MURID));
+
+        JMenuItem masterCoach = new JMenuItem("Master Coach");
+        masterCoach.setFont(new Font("SansSerif", Font.BOLD, 13));
+        masterCoach.setIcon(new MenuGlyphIcon("Coach", new Color(34, 197, 94)));
+        masterCoach.setBorder(BorderFactory.createEmptyBorder(6, 4, 6, 10));
+        masterCoach.setIconTextGap(6);
+        masterCoach.addActionListener(event -> openMasterData(userModule, MasterDataScreen.MasterType.COACH));
+
+        popupMenu.add(masterMurid);
+        popupMenu.add(masterCoach);
+
+        button.addActionListener(event -> popupMenu.show(button, 0, button.getHeight()));
+        return button;
     }
 
     private String buildModuleLabel(String moduleName, String fallbackLabel) {
@@ -420,6 +464,16 @@ public class DashboardScreen extends JPanel {
         highlightNav(module.getCode());
     }
 
+    private void openMasterData(AppModule module, MasterDataScreen.MasterType type) {
+        if (type == MasterDataScreen.MasterType.MURID) {
+            setHeader("Master Murid", "Daftar user kategori murid untuk kebutuhan report.");
+        } else {
+            setHeader("Master Coach", "Daftar user kategori coach/pelatih untuk kebutuhan report.");
+        }
+        setBody(new MasterDataScreen(user, module, type, this::handleSessionRefresh));
+        highlightNav("MASTER");
+    }
+
     private void handleSessionRefresh() {
         refreshSessionState();
     }
@@ -472,6 +526,39 @@ public class DashboardScreen extends JPanel {
         @Override
         public int getIconHeight() {
             return size;
+        }
+    }
+
+    private static final class MenuGlyphIcon implements Icon {
+        private final String glyph;
+        private final Color color;
+
+        private MenuGlyphIcon(String glyph, Color color) {
+            this.glyph = glyph;
+            this.color = color;
+        }
+
+        @Override
+        public void paintIcon(Component component, Graphics graphics, int x, int y) {
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(new Color(226, 232, 240));
+            g2.fillRoundRect(x, y, 18, 18, 3, 3);
+            g2.setColor(color);
+            g2.setFont(new Font("SansSerif", Font.BOLD, 10));
+            String shortGlyph = glyph.length() > 2 ? glyph.substring(0, 2) : glyph;
+            g2.drawString(shortGlyph, x + 3, y + 12);
+            g2.dispose();
+        }
+
+        @Override
+        public int getIconWidth() {
+            return 18;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return 18;
         }
     }
 }
