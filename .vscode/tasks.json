@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Build Java App",
+            "type": "shell",
+            "command": "powershell",
+            "args": [
+                "-NoProfile",
+                "-ExecutionPolicy",
+                "Bypass",
+                "-Command",
+                "$sources = Get-ChildItem -Recurse 'src\\main\\java' -Filter *.java | ForEach-Object { $_.FullName }; if (!(Test-Path 'bin')) { New-Item -ItemType Directory -Path 'bin' | Out-Null }; javac -cp 'lib/*' -d bin $sources"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+            "problemMatcher": "$javac",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        }
+    ]
+}

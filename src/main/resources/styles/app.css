@@ -1,0 +1,122 @@
+.page {
+    -fx-background-color: linear-gradient(to right, #0f172a 0%, #0f172a 38%, #f8fafc 38%, #f8fafc 100%);
+}
+
+.dashboard-page {
+    -fx-background-color: #f8fafc;
+}
+
+.hero-panel {
+    -fx-pref-width: 360px;
+    -fx-background-color: transparent;
+}
+
+.content-panel {
+    -fx-background-color: transparent;
+}
+
+.hero-title {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #ffffff;
+}
+
+.hero-subtitle {
+    -fx-font-size: 14px;
+    -fx-text-fill: #cbd5e1;
+}
+
+.form-card {
+    -fx-background-color: #ffffff;
+    -fx-background-radius: 18px;
+    -fx-border-radius: 18px;
+    -fx-effect: dropshadow(gaussian, rgba(15, 23, 42, 0.14), 20, 0.15, 0, 8);
+}
+
+.form-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0f172a;
+}
+
+.form-subtitle {
+    -fx-font-size: 13px;
+    -fx-text-fill: #64748b;
+}
+
+.text-field,
+.password-field {
+    -fx-pref-height: 42px;
+    -fx-background-radius: 10px;
+    -fx-border-radius: 10px;
+    -fx-background-color: #f8fafc;
+    -fx-border-color: #cbd5e1;
+    -fx-padding: 0 12 0 12;
+}
+
+.text-field:focused,
+.password-field:focused {
+    -fx-border-color: #2563eb;
+    -fx-background-color: #ffffff;
+}
+
+.primary-button {
+    -fx-pref-height: 42px;
+    -fx-background-color: #2563eb;
+    -fx-text-fill: white;
+    -fx-background-radius: 10px;
+    -fx-font-weight: bold;
+}
+
+.primary-button:hover {
+    -fx-background-color: #1d4ed8;
+}
+
+.secondary-button {
+    -fx-pref-height: 42px;
+    -fx-background-color: #e2e8f0;
+    -fx-text-fill: #0f172a;
+    -fx-background-radius: 10px;
+    -fx-font-weight: bold;
+}
+
+.secondary-button:hover {
+    -fx-background-color: #cbd5e1;
+}
+
+.message-label {
+    -fx-text-fill: #dc2626;
+    -fx-font-size: 12px;
+}
+
+.top-bar {
+    -fx-background-color: #ffffff;
+    -fx-border-color: transparent transparent #e2e8f0 transparent;
+}
+
+.dashboard-title {
+    -fx-font-size: 24px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0f172a;
+}
+
+.user-badge {
+    -fx-background-color: #dbeafe;
+    -fx-text-fill: #1d4ed8;
+    -fx-padding: 8 12 8 12;
+    -fx-background-radius: 999px;
+}
+
+.empty-title {
+    -fx-font-size: 28px;
+    -fx-font-weight: bold;
+    -fx-text-fill: #0f172a;
+}
+
+.empty-subtitle {
+    -fx-font-size: 14px;
+    -fx-text-fill: #64748b;
+    -fx-max-width: 420px;
+    -fx-alignment: center;
+    -fx-text-alignment: center;
+}
