@@ -44,6 +44,7 @@ public class LevelManagementScreen extends JPanel {
     private static final String SAVE_ICON = "\u2714";
     private static final String UPDATE_ICON = "\u27F3";
     private static final String SEARCH_ICON = "\u2315";
+    private static final String CLEAR_ICON = "\u2715";
 
     private final User currentUser;
     private final AppModule modulePermission;
@@ -130,6 +131,13 @@ public class LevelManagementScreen extends JPanel {
         RoundedButton searchButton = createActionButton(SEARCH_ICON + " Search", new Color(30, 64, 175), 122);
         searchButton.addActionListener(event -> applySearchFilter());
         actionPanel.add(searchButton);
+        actionPanel.add(Box.createHorizontalStrut(8));
+        RoundedButton clearButton = createActionButton(CLEAR_ICON + " Clear", new Color(100, 116, 139), 122);
+        clearButton.addActionListener(event -> {
+            searchField.setText("Cari level...");
+            rowSorter.setRowFilter(null);
+        });
+        actionPanel.add(clearButton);
 
         statusLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 

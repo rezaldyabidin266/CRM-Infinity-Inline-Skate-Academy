@@ -1,11 +1,19 @@
 {
-    "java.project.sourcePaths": [
-        "src/main/java"
-    ],
-    "java.project.outputPath": "bin",
-    "java.project.referencedLibraries": [
-        "lib/**/*.jar"
-    ],
-    "java.configuration.updateBuildConfiguration": "interactive",
-    "java.debug.settings.onBuildFailureProceed": false
+    "java.project.sourcePaths":  [
+                                     "src/main/java"
+                                 ],
+    "java.project.outputPath":  "bin",
+    "java.project.referencedLibraries":  [
+                                             "lib/**/*.jar"
+                                         ],
+    "java.configuration.updateBuildConfiguration":  "interactive",
+    "java.debug.settings.onBuildFailureProceed":  false,
+    "code-runner.runInTerminal":  true,
+    "code-runner.saveAllFilesBeforeRun":  true,
+    "code-runner.clearPreviousOutput":  true,
+    "code-runner.fileDirectoryAsCwd":  false,
+    "code-runner.executorMap":  {
+                                    "java":  "Set-Location -LiteralPath \"$workspaceRoot\"; .\\run.bat"
+                                },
+    "code-runner.ignoreSelection":  true
 }

@@ -7,6 +7,13 @@ import com.tugasbesar.app.model.User;
 import com.tugasbesar.app.service.MasterDataService;
 import com.tugasbesar.app.service.UserManagementService;
 import com.tugasbesar.app.ui.component.RoundedButton;
+import net.sf.jasperreports.engine.JRException;
+import net.sf.jasperreports.engine.JasperCompileManager;
+import net.sf.jasperreports.engine.JasperExportManager;
+import net.sf.jasperreports.engine.JasperFillManager;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.JasperReport;
+import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -37,6 +44,7 @@ import java.awt.Font;
 import java.awt.Frame;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.ByteArrayInputStream;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -44,6 +52,8 @@ import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -63,10 +73,12 @@ public class MasterDataScreen extends JPanel {
     private static final String ADD_ICON = "\u271A";
     private static final String REFRESH_ICON = "\u21BB";
     private static final String EXPORT_ICON = "\u21E9";
+    private static final String JASPER_ICON = "\u2399";
     private static final String IMPORT_ICON = "\u21E7";
     private static final String EDIT_ICON = "\u270E";
     private static final String DELETE_ICON = "\u2716";
     private static final String SEARCH_ICON = "\u2315";
+    private static final String CLEAR_ICON = "\u2715";
 
     public enum MasterType {
         MURID,
@@ -81,7 +93,6 @@ public class MasterDataScreen extends JPanel {
     private final DefaultTableModel tableModel;
     private final JTable masterTable;
     private final JLabel statusLabel;
-    private final JLabel countLabel;
     private final JLabel dataInfoLabel;
     private final JTextField searchField;
     private final JComboBox<String> levelFilter;
@@ -107,7 +118,6 @@ public class MasterDataScreen extends JPanel {
         };
         this.masterTable = new JTable(tableModel);
         this.statusLabel = new JLabel(" ");
-        this.countLabel = new JLabel(" ");
         this.dataInfoLabel = new JLabel("Data ditampilkan: 0");
         this.searchField = new JTextField();
         this.levelFilter = new JComboBox<>(new String[]{"Semua Level"});
@@ -148,23 +158,35 @@ public class MasterDataScreen extends JPanel {
         RoundedButton addButton = createActionButton(ADD_ICON + " Tambah", new Color(14, 116, 144), 132);
         RoundedButton refreshButton = createActionButton(REFRESH_ICON + " Refresh", new Color(71, 85, 105), 142);
         RoundedButton exportButton = createActionButton(EXPORT_ICON + " Export", new Color(2, 132, 199), 154);
+        RoundedButton jasperButton = createActionButton(JASPER_ICON + " Jasper PDF", new Color(29, 78, 216), 176);
         RoundedButton importButton = createActionButton(IMPORT_ICON + " Import", new Color(22, 163, 74), 154);
         RoundedButton searchButton = createActionButton(SEARCH_ICON + " Search", new Color(30, 64, 175), 126);
+        RoundedButton clearButton = createActionButton(CLEAR_ICON + " Clear", new Color(100, 116, 139), 126);
 
         addButton.setEnabled(canCreate());
         addButton.addActionListener(event -> openUserDialog(null));
         refreshButton.addActionListener(event -> loadData());
         exportButton.setEnabled(canExport());
         exportButton.addActionListener(event -> exportData());
+        jasperButton.setEnabled(canExport());
+        jasperButton.addActionListener(event -> exportJasperPdf());
         importButton.setEnabled(canImport());
         importButton.addActionListener(event -> importData());
         searchButton.addActionListener(event -> applyFilters());
+        clearButton.addActionListener(event -> {
+            searchField.setText("Cari nama, username, email, role...");
+            levelFilter.setSelectedIndex(0);
+            statusFilter.setSelectedIndex(0);
+            applyFilters();
+        });
 
         actionPanel.add(addButton);
         actionPanel.add(Box.createHorizontalStrut(8));
         actionPanel.add(refreshButton);
         actionPanel.add(Box.createHorizontalStrut(8));
         actionPanel.add(exportButton);
+        actionPanel.add(Box.createHorizontalStrut(8));
+        actionPanel.add(jasperButton);
         actionPanel.add(Box.createHorizontalStrut(8));
         actionPanel.add(importButton);
 
@@ -200,16 +222,13 @@ public class MasterDataScreen extends JPanel {
         filterPanel.add(new JLabel("Search"));
         filterPanel.add(searchField);
         filterPanel.add(searchButton);
+        filterPanel.add(clearButton);
         filterPanel.add(new JLabel("Level"));
         filterPanel.add(levelFilter);
         filterPanel.add(new JLabel("Status"));
         filterPanel.add(statusFilter);
 
         wrapper.add(actionPanel);
-        wrapper.add(Box.createVerticalStrut(12));
-        countLabel.setFont(new Font("SansSerif", Font.BOLD, 15));
-        countLabel.setForeground(new Color(30, 64, 175));
-        wrapper.add(countLabel);
         wrapper.add(Box.createVerticalStrut(12));
         wrapper.add(filterPanel);
         wrapper.add(Box.createVerticalStrut(18));
@@ -279,11 +298,6 @@ public class MasterDataScreen extends JPanel {
     private void loadData() {
         List<User> coachUsers = masterDataService.getMasterCoachUsers();
         List<User> muridUsers = masterDataService.getMasterMuridUsers();
-        if (masterType == MasterType.MURID) {
-            countLabel.setText("Jumlah Murid : " + muridUsers.size());
-        } else {
-            countLabel.setText("Jumlah Coach : " + coachUsers.size());
-        }
 
         sourceUsers.clear();
         sourceUsers.addAll(masterType == MasterType.MURID ? muridUsers : coachUsers);
@@ -688,6 +702,123 @@ public class MasterDataScreen extends JPanel {
         }
     }
 
+    private void exportJasperPdf() {
+        if (!canExport()) {
+            showStatus("Anda tidak punya izin export.", true);
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Export Master Data (Jasper PDF)");
+        chooser.setAcceptAllFileFilterUsed(false);
+        chooser.addChoosableFileFilter(new FileNameExtensionFilter("PDF File (*.pdf)", "pdf"));
+        chooser.setFileFilter(new FileNameExtensionFilter("PDF File (*.pdf)", "pdf"));
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File file = chooser.getSelectedFile();
+        if (file == null) {
+            showStatus("Lokasi file export tidak valid.", true);
+            return;
+        }
+        if (!file.getName().toLowerCase().endsWith(".pdf")) {
+            file = appendExtension(file, "pdf");
+        }
+
+        try {
+            exportJasperPdf(file);
+            showStatus("Export Jasper PDF berhasil.", false);
+        } catch (NoClassDefFoundError error) {
+            showStatus("Library Jasper belum lengkap: " + error.getMessage(), true);
+        } catch (Exception exception) {
+            showStatus("Gagal export Jasper PDF: " + rootErrorMessage(exception), true);
+        }
+    }
+
+    private void exportJasperPdf(File file) throws JRException {
+        List<MasterExportRow> rows = new ArrayList<>();
+        for (int row = 0; row < tableModel.getRowCount(); row++) {
+            rows.add(new MasterExportRow(
+                    String.valueOf(tableModel.getValueAt(row, 1)),
+                    String.valueOf(tableModel.getValueAt(row, 2)),
+                    String.valueOf(tableModel.getValueAt(row, 3)),
+                    String.valueOf(tableModel.getValueAt(row, 4)),
+                    String.valueOf(tableModel.getValueAt(row, 5)),
+                    String.valueOf(tableModel.getValueAt(row, 6)),
+                    String.valueOf(tableModel.getValueAt(row, 7))
+            ));
+        }
+
+        String jrxml = buildMasterJasperTemplate();
+        InputStream templateStream = new ByteArrayInputStream(jrxml.getBytes(StandardCharsets.UTF_8));
+        JasperReport jasperReport = JasperCompileManager.compileReport(templateStream);
+        JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(rows);
+        JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, new HashMap<String, Object>(), dataSource);
+        JasperExportManager.exportReportToPdfFile(jasperPrint, file.getAbsolutePath());
+    }
+
+    private String rootErrorMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.trim().isEmpty() ? current.getClass().getSimpleName() : message;
+    }
+
+    private String buildMasterJasperTemplate() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<jasperReport xmlns=\"http://jasperreports.sourceforge.net/jasperreports\" "
+                + "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
+                + "xsi:schemaLocation=\"http://jasperreports.sourceforge.net/jasperreports "
+                + "http://jasperreports.sourceforge.net/xsd/jasperreport.xsd\" "
+                + "name=\"master_data_report\" pageWidth=\"842\" pageHeight=\"595\" orientation=\"Landscape\" "
+                + "columnWidth=\"802\" leftMargin=\"20\" rightMargin=\"20\" topMargin=\"20\" bottomMargin=\"20\">"
+                + "<field name=\"fullName\" class=\"java.lang.String\"/>"
+                + "<field name=\"username\" class=\"java.lang.String\"/>"
+                + "<field name=\"email\" class=\"java.lang.String\"/>"
+                + "<field name=\"role\" class=\"java.lang.String\"/>"
+                + "<field name=\"level\" class=\"java.lang.String\"/>"
+                + "<field name=\"status\" class=\"java.lang.String\"/>"
+                + "<field name=\"lastLogin\" class=\"java.lang.String\"/>"
+                + "<title><band height=\"36\">"
+                + "<staticText><reportElement x=\"0\" y=\"0\" width=\"802\" height=\"28\"/>"
+                + "<textElement><font size=\"14\" isBold=\"true\"/></textElement>"
+                + "<text><![CDATA[Master Data Export]]></text></staticText>"
+                + "</band></title>"
+                + "<columnHeader><band height=\"22\">"
+                + buildHeaderText(0, 120, "Full Name")
+                + buildHeaderText(120, 90, "Username")
+                + buildHeaderText(210, 190, "Email")
+                + buildHeaderText(400, 110, "Role")
+                + buildHeaderText(510, 90, "Level")
+                + buildHeaderText(600, 80, "Status")
+                + buildHeaderText(680, 122, "Last Login")
+                + "</band></columnHeader>"
+                + "<detail><band height=\"20\">"
+                + buildDetailTextField(0, 120, "fullName")
+                + buildDetailTextField(120, 90, "username")
+                + buildDetailTextField(210, 190, "email")
+                + buildDetailTextField(400, 110, "role")
+                + buildDetailTextField(510, 90, "level")
+                + buildDetailTextField(600, 80, "status")
+                + buildDetailTextField(680, 122, "lastLogin")
+                + "</band></detail>"
+                + "</jasperReport>";
+    }
+
+    private String buildHeaderText(int x, int width, String text) {
+        return "<staticText><reportElement x=\"" + x + "\" y=\"0\" width=\"" + width + "\" height=\"20\"/>"
+                + "<textElement><font size=\"10\" isBold=\"true\"/></textElement>"
+                + "<text><![CDATA[" + text + "]]></text></staticText>";
+    }
+
+    private String buildDetailTextField(int x, int width, String field) {
+        return "<textField textAdjust=\"StretchHeight\"><reportElement x=\"" + x + "\" y=\"0\" width=\"" + width + "\" height=\"18\"/>"
+                + "<textElement><font size=\"9\"/></textElement>"
+                + "<textFieldExpression><![CDATA[$F{" + field + "}]]></textFieldExpression></textField>";
+    }
+
     private void importData() {
         if (!canImport()) {
             showStatus("Anda tidak punya izin import.", true);
@@ -1034,6 +1165,54 @@ public class MasterDataScreen extends JPanel {
             return "\"" + text.replace("\"", "\"\"") + "\"";
         }
         return text;
+    }
+
+    public static final class MasterExportRow {
+        private final String fullName;
+        private final String username;
+        private final String email;
+        private final String role;
+        private final String level;
+        private final String status;
+        private final String lastLogin;
+
+        public MasterExportRow(String fullName, String username, String email, String role, String level, String status, String lastLogin) {
+            this.fullName = fullName;
+            this.username = username;
+            this.email = email;
+            this.role = role;
+            this.level = level;
+            this.status = status;
+            this.lastLogin = lastLogin;
+        }
+
+        public String getFullName() {
+            return fullName;
+        }
+
+        public String getUsername() {
+            return username;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public String getRole() {
+            return role;
+        }
+
+        public String getLevel() {
+            return level;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public String getLastLogin() {
+            return lastLogin;
+        }
     }
 
     private final class ActionCellRenderer implements TableCellRenderer {
