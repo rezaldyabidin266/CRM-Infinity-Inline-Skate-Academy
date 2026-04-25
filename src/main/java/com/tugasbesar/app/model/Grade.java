@@ -1,11 +1,9 @@
 package com.tugasbesar.app.model;
 
-public class Level {
+public class Grade {
     private String uuid;
     private String name;
     private String description;
-    private String gradeUuid;
-    private String gradeName;
     private int gradeValue;
     private int sortOrder;
 
@@ -33,22 +31,6 @@ public class Level {
         this.description = description;
     }
 
-    public String getGradeUuid() {
-        return gradeUuid;
-    }
-
-    public void setGradeUuid(String gradeUuid) {
-        this.gradeUuid = gradeUuid;
-    }
-
-    public String getGradeName() {
-        return gradeName;
-    }
-
-    public void setGradeName(String gradeName) {
-        this.gradeName = gradeName;
-    }
-
     public int getGradeValue() {
         return gradeValue;
     }
@@ -67,6 +49,6 @@ public class Level {
 
     @Override
     public String toString() {
-        return name;
+        return name + " (" + gradeValue + ")";
     }
 }

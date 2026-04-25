@@ -16,18 +16,19 @@ public class LevelManagementService {
         return levelRepository.findAllLevels();
     }
 
-    public Level createLevel(String name, String description) {
-        validateInput(name, description, null);
-        return levelRepository.create(name, description);
+    public Level createLevel(String name, String description, String gradeUuid) {
+        validateInput(name, description, gradeUuid, null);
+        return levelRepository.create(name, description, gradeUuid.trim());
     }
 
-    public void updateLevel(Level existingLevel, String name, String description) {
+    public void updateLevel(Level existingLevel, String name, String description, String gradeUuid) {
         if (existingLevel == null) {
             throw new IllegalArgumentException("Level tidak ditemukan.");
         }
-        validateInput(name, description, existingLevel.getUuid());
+        validateInput(name, description, gradeUuid, existingLevel.getUuid());
         existingLevel.setName(name.trim());
         existingLevel.setDescription(description.trim());
+        existingLevel.setGradeUuid(gradeUuid.trim());
         levelRepository.update(existingLevel);
     }
 
@@ -47,12 +48,18 @@ public class LevelManagementService {
         levelRepository.deleteByUuid(level.getUuid());
     }
 
-    private void validateInput(String name, String description, String currentUuid) {
+    private void validateInput(String name, String description, String gradeUuid, String currentUuid) {
         if (name == null || name.trim().isEmpty()) {
             throw new IllegalArgumentException("Nama level wajib diisi.");
         }
         if (description == null || description.trim().isEmpty()) {
             throw new IllegalArgumentException("Deskripsi level wajib diisi.");
+        }
+        if (gradeUuid == null || gradeUuid.trim().isEmpty()) {
+            throw new IllegalArgumentException("Grade wajib dipilih.");
+        }
+        if (!levelRepository.gradeExistsByUuid(gradeUuid.trim())) {
+            throw new IllegalArgumentException("Grade tidak valid.");
         }
 
         Level existing = levelRepository.findByName(name.trim());

@@ -278,14 +278,17 @@ public class DashboardScreen extends JPanel {
         if ("Level".equalsIgnoreCase(moduleName)) {
             return 2;
         }
-        if ("Role".equalsIgnoreCase(moduleName)) {
+        if ("Grade".equalsIgnoreCase(moduleName)) {
             return 3;
         }
-        if ("Laporan".equalsIgnoreCase(moduleName)) {
+        if ("Role".equalsIgnoreCase(moduleName)) {
             return 4;
         }
-        if ("Pengaturan".equalsIgnoreCase(moduleName)) {
+        if ("Laporan".equalsIgnoreCase(moduleName)) {
             return 5;
+        }
+        if ("Pengaturan".equalsIgnoreCase(moduleName)) {
+            return 6;
         }
         return 50;
     }
@@ -341,6 +344,9 @@ public class DashboardScreen extends JPanel {
         }
         if ("Level".equalsIgnoreCase(moduleName)) {
             return createNavLabel("\u25C8", "Level");
+        }
+        if ("Grade".equalsIgnoreCase(moduleName)) {
+            return createNavLabel("\u25A3", "Grade");
         }
         if ("Role".equalsIgnoreCase(moduleName)) {
             return createNavLabel("\u2699", "Roles");
@@ -445,6 +451,13 @@ public class DashboardScreen extends JPanel {
         if ("Level".equalsIgnoreCase(module.getName())) {
             setHeader("Levels", "Kelola level user untuk kebutuhan pembinaan dan klasifikasi.");
             setBody(new LevelManagementScreen(user, module));
+            highlightNav(module.getCode());
+            return;
+        }
+
+        if ("Grade".equalsIgnoreCase(module.getName())) {
+            setHeader("Grades", "Kelola grade untuk klasifikasi level user.");
+            setBody(new GradeManagementScreen(user, module));
             highlightNav(module.getCode());
             return;
         }

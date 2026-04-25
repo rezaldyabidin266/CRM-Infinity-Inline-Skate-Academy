@@ -45,13 +45,23 @@ public class LoginScreen extends JPanel {
         card.setBackground(new Color(255, 255, 255, 245));
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(191, 219, 254)),
-                BorderFactory.createEmptyBorder(36, 36, 32, 36)));
+                BorderFactory.createEmptyBorder(34, 36, 30, 36)));
         card.setLayout(new BoxLayout(card, BoxLayout.Y_AXIS));
-        card.setPreferredSize(new Dimension(500, 450));
-        card.setMaximumSize(new Dimension(520, 460));
+        card.setPreferredSize(new Dimension(520, 560));
+        card.setMaximumSize(new Dimension(540, 580));
+
+        JLabel academyTagLabel = new JLabel("WELCOME TO");
+        academyTagLabel.setFont(new Font("SansSerif", Font.BOLD, 12));
+        academyTagLabel.setForeground(new Color(14, 116, 144));
+        academyTagLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel academyLabel = new JLabel("Infinity Inline Skate Academy");
+        academyLabel.setFont(new Font("SansSerif", Font.BOLD, 27));
+        academyLabel.setForeground(new Color(30, 64, 175));
+        academyLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel titleLabel = new JLabel("Masuk ke Akun");
-        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 28));
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 30));
         titleLabel.setForeground(new Color(15, 23, 42));
         titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -88,20 +98,24 @@ public class LoginScreen extends JPanel {
 
         registerButton.addActionListener(event -> screenManager.showRegisterScreen());
 
+        card.add(academyTagLabel);
+        card.add(Box.createVerticalStrut(4));
+        card.add(academyLabel);
+        card.add(Box.createVerticalStrut(8));
         card.add(titleLabel);
-        card.add(Box.createVerticalStrut(10));
+        card.add(Box.createVerticalStrut(8));
         card.add(subtitleLabel);
-        card.add(Box.createVerticalStrut(24));
+        card.add(Box.createVerticalStrut(20));
         card.add(createFieldLabel("Username atau Email"));
         card.add(identityField);
-        card.add(Box.createVerticalStrut(18));
+        card.add(Box.createVerticalStrut(16));
         card.add(createFieldLabel("Password"));
         card.add(passwordField);
-        card.add(Box.createVerticalStrut(16));
-        card.add(messageLabel);
-        card.add(Box.createVerticalStrut(18));
-        card.add(loginButton);
         card.add(Box.createVerticalStrut(14));
+        card.add(messageLabel);
+        card.add(Box.createVerticalStrut(16));
+        card.add(loginButton);
+        card.add(Box.createVerticalStrut(12));
         card.add(registerButton);
         card.add(Box.createVerticalGlue());
 
@@ -110,17 +124,17 @@ public class LoginScreen extends JPanel {
 
     private JTextField createTextField() {
         JTextField textField = new JTextField();
-        textField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
-        textField.setPreferredSize(new Dimension(360, 52));
-        textField.setFont(new Font("SansSerif", Font.PLAIN, 18));
+        textField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
+        textField.setPreferredSize(new Dimension(360, 44));
+        textField.setFont(new Font("SansSerif", Font.PLAIN, 17));
         return textField;
     }
 
     private JPasswordField createPasswordField() {
         JPasswordField passwordField = new JPasswordField();
-        passwordField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 52));
-        passwordField.setPreferredSize(new Dimension(360, 52));
-        passwordField.setFont(new Font("SansSerif", Font.PLAIN, 18));
+        passwordField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
+        passwordField.setPreferredSize(new Dimension(360, 44));
+        passwordField.setFont(new Font("SansSerif", Font.PLAIN, 17));
         return passwordField;
     }
 

@@ -1,6 +1,7 @@
 package com.tugasbesar.app.repository;
 
 import com.tugasbesar.app.database.DatabaseConnection;
+import com.tugasbesar.app.model.Grade;
 import com.tugasbesar.app.model.Level;
 
 import java.sql.Connection;
@@ -12,8 +13,19 @@ import java.util.List;
 import java.util.UUID;
 
 public class LevelRepository {
+    private static final String LEVEL_SELECT = "SELECT l.uuid, l.name, l.description, l.sort_order, l.grade_uuid, "
+            + "g.name AS grade_name, g.grade_value AS grade_value "
+            + "FROM levels l "
+            + "JOIN grades g ON g.uuid = l.grade_uuid ";
+
+    private final GradeRepository gradeRepository;
+
+    public LevelRepository() {
+        this.gradeRepository = new GradeRepository();
+    }
+
     public List<Level> findAllLevels() {
-        String sql = "SELECT uuid, name, description, sort_order FROM levels ORDER BY sort_order ASC, name ASC";
+        String sql = LEVEL_SELECT + "ORDER BY g.grade_value ASC, l.sort_order ASC, l.name ASC";
         List<Level> levels = new ArrayList<>();
 
         try (Connection connection = DatabaseConnection.getConnection();
@@ -29,7 +41,7 @@ public class LevelRepository {
     }
 
     public Level findByUuid(String uuid) {
-        String sql = "SELECT uuid, name, description, sort_order FROM levels WHERE uuid = ? LIMIT 1";
+        String sql = LEVEL_SELECT + "WHERE l.uuid = ? LIMIT 1";
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -46,7 +58,7 @@ public class LevelRepository {
     }
 
     public Level findByName(String name) {
-        String sql = "SELECT uuid, name, description, sort_order FROM levels WHERE LOWER(name) = LOWER(?) LIMIT 1";
+        String sql = LEVEL_SELECT + "WHERE LOWER(l.name) = LOWER(?) LIMIT 1";
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -73,7 +85,8 @@ public class LevelRepository {
             return existing;
         }
 
-        String insertSql = "INSERT INTO levels (uuid, name, description, sort_order) VALUES (?, ?, ?, ?)";
+        Grade defaultGrade = gradeRepository.ensureDefaultGrade();
+        String insertSql = "INSERT INTO levels (uuid, name, description, sort_order, grade_uuid) VALUES (?, ?, ?, ?, ?)";
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(insertSql)) {
@@ -82,12 +95,16 @@ public class LevelRepository {
             statement.setString(2, name);
             statement.setString(3, "Level " + name);
             statement.setInt(4, nextSortOrder(connection));
+            statement.setString(5, defaultGrade.getUuid());
             statement.executeUpdate();
 
             Level level = new Level();
             level.setUuid(uuid);
             level.setName(name);
             level.setDescription("Level " + name);
+            level.setGradeUuid(defaultGrade.getUuid());
+            level.setGradeName(defaultGrade.getName());
+            level.setGradeValue(defaultGrade.getGradeValue());
             return level;
         } catch (SQLException exception) {
             Level afterInsert = findByName(name);
@@ -98,8 +115,8 @@ public class LevelRepository {
         }
     }
 
-    public Level create(String name, String description) {
-        String insertSql = "INSERT INTO levels (uuid, name, description, sort_order) VALUES (?, ?, ?, ?)";
+    public Level create(String name, String description, String gradeUuid) {
+        String insertSql = "INSERT INTO levels (uuid, name, description, sort_order, grade_uuid) VALUES (?, ?, ?, ?, ?)";
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(insertSql)) {
@@ -108,25 +125,22 @@ public class LevelRepository {
             statement.setString(2, name.trim());
             statement.setString(3, description.trim());
             statement.setInt(4, nextSortOrder(connection));
+            statement.setString(5, gradeUuid);
             statement.executeUpdate();
-
-            Level level = new Level();
-            level.setUuid(uuid);
-            level.setName(name.trim());
-            level.setDescription(description.trim());
-            return level;
+            return findByUuid(uuid);
         } catch (SQLException exception) {
             throw new RuntimeException("Gagal membuat level: " + exception.getMessage(), exception);
         }
     }
 
     public void update(Level level) {
-        String sql = "UPDATE levels SET name = ?, description = ? WHERE uuid = ?";
+        String sql = "UPDATE levels SET name = ?, description = ?, grade_uuid = ? WHERE uuid = ?";
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setString(1, level.getName());
             statement.setString(2, level.getDescription());
-            statement.setString(3, level.getUuid());
+            statement.setString(3, level.getGradeUuid());
+            statement.setString(4, level.getUuid());
             statement.executeUpdate();
         } catch (SQLException exception) {
             throw new RuntimeException("Gagal memperbarui level.", exception);
@@ -162,12 +176,29 @@ public class LevelRepository {
         }
     }
 
+    public boolean gradeExistsByUuid(String gradeUuid) {
+        String sql = "SELECT uuid FROM grades WHERE uuid = ? LIMIT 1";
+
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, gradeUuid);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next();
+            }
+        } catch (SQLException exception) {
+            throw new RuntimeException("Gagal memvalidasi grade.", exception);
+        }
+    }
+
     private Level mapLevel(ResultSet resultSet) throws SQLException {
         Level level = new Level();
         level.setUuid(resultSet.getString("uuid"));
         level.setName(resultSet.getString("name"));
         level.setDescription(resultSet.getString("description"));
         level.setSortOrder(resultSet.getInt("sort_order"));
+        level.setGradeUuid(resultSet.getString("grade_uuid"));
+        level.setGradeName(resultSet.getString("grade_name"));
+        level.setGradeValue(resultSet.getInt("grade_value"));
         return level;
     }
 

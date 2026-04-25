@@ -2,10 +2,8 @@ package com.tugasbesar.app.ui.screen;
 
 import com.tugasbesar.app.model.AppModule;
 import com.tugasbesar.app.model.Grade;
-import com.tugasbesar.app.model.Level;
 import com.tugasbesar.app.model.User;
-import com.tugasbesar.app.repository.GradeRepository;
-import com.tugasbesar.app.service.LevelManagementService;
+import com.tugasbesar.app.service.GradeManagementService;
 import com.tugasbesar.app.ui.component.RoundedButton;
 
 import javax.swing.BorderFactory;
@@ -17,9 +15,8 @@ import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.JTextField;
 import javax.swing.JTextArea;
-import javax.swing.JComboBox;
+import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.table.DefaultTableModel;
@@ -38,7 +35,7 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.List;
 
-public class LevelManagementScreen extends JPanel {
+public class GradeManagementScreen extends JPanel {
     private static final String ADD_ICON = "\u271A";
     private static final String REFRESH_ICON = "\u21BB";
     private static final String EDIT_ICON = "\u270E";
@@ -51,25 +48,21 @@ public class LevelManagementScreen extends JPanel {
 
     private final User currentUser;
     private final AppModule modulePermission;
-    private final LevelManagementService levelManagementService;
-    private final GradeRepository gradeRepository;
-    private final List<Level> levels;
+    private final GradeManagementService gradeManagementService;
     private final List<Grade> grades;
     private final DefaultTableModel tableModel;
-    private final JTable levelTable;
+    private final JTable gradeTable;
     private final TableRowSorter<DefaultTableModel> rowSorter;
     private final JLabel statusLabel;
     private final JTextField searchField;
 
-    public LevelManagementScreen(User currentUser, AppModule modulePermission) {
+    public GradeManagementScreen(User currentUser, AppModule modulePermission) {
         this.currentUser = currentUser;
         this.modulePermission = modulePermission;
-        this.levelManagementService = new LevelManagementService();
-        this.gradeRepository = new GradeRepository();
-        this.levels = new ArrayList<>();
+        this.gradeManagementService = new GradeManagementService();
         this.grades = new ArrayList<>();
         this.tableModel = createTableModel();
-        this.levelTable = new JTable(tableModel);
+        this.gradeTable = new JTable(tableModel);
         this.rowSorter = new TableRowSorter<>(tableModel);
         this.statusLabel = new JLabel(" ");
         this.searchField = new JTextField();
@@ -81,7 +74,7 @@ public class LevelManagementScreen extends JPanel {
         configureTable();
         add(buildToolbar(), BorderLayout.NORTH);
         add(buildTableSection(), BorderLayout.CENTER);
-        loadLevels();
+        loadGrades();
     }
 
     private JPanel buildToolbar() {
@@ -93,20 +86,20 @@ public class LevelManagementScreen extends JPanel {
         actionPanel.setOpaque(false);
         actionPanel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        RoundedButton addButton = createActionButton(ADD_ICON + " Tambah Level", new Color(14, 116, 144), 168);
+        RoundedButton addButton = createActionButton(ADD_ICON + " Tambah Grade", new Color(14, 116, 144), 170);
         RoundedButton refreshButton = createActionButton(REFRESH_ICON + " Refresh", new Color(71, 85, 105), 144);
 
         addButton.setEnabled(canCreate());
         addButton.addActionListener(event -> {
             if (!canCreate()) {
-                showStatus("Anda tidak punya izin create level.", true);
+                showStatus("Anda tidak punya izin create grade.", true);
                 return;
             }
-            openLevelDialog(null);
+            openGradeDialog(null);
         });
         refreshButton.addActionListener(event -> {
-            loadLevels();
-            showStatus("Data level berhasil dimuat ulang.", false);
+            loadGrades();
+            showStatus("Data grade berhasil dimuat ulang.", false);
         });
 
         actionPanel.add(addButton);
@@ -115,12 +108,12 @@ public class LevelManagementScreen extends JPanel {
         actionPanel.add(Box.createHorizontalStrut(10));
         searchField.setPreferredSize(new Dimension(240, 34));
         searchField.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        searchField.setToolTipText("Cari nama atau deskripsi level");
-        searchField.setText("Cari level...");
+        searchField.setToolTipText("Cari nama atau deskripsi grade");
+        searchField.setText("Cari grade...");
         searchField.addFocusListener(new java.awt.event.FocusAdapter() {
             @Override
             public void focusGained(java.awt.event.FocusEvent event) {
-                if ("Cari level...".equals(searchField.getText())) {
+                if ("Cari grade...".equals(searchField.getText())) {
                     searchField.setText("");
                 }
             }
@@ -128,7 +121,7 @@ public class LevelManagementScreen extends JPanel {
             @Override
             public void focusLost(java.awt.event.FocusEvent event) {
                 if (searchField.getText() == null || searchField.getText().trim().isEmpty()) {
-                    searchField.setText("Cari level...");
+                    searchField.setText("Cari grade...");
                 }
             }
         });
@@ -141,7 +134,7 @@ public class LevelManagementScreen extends JPanel {
         actionPanel.add(Box.createHorizontalStrut(8));
         RoundedButton clearButton = createActionButton(CLEAR_ICON + " Clear", new Color(100, 116, 139), 122);
         clearButton.addActionListener(event -> {
-            searchField.setText("Cari level...");
+            searchField.setText("Cari grade...");
             rowSorter.setRowFilter(null);
         });
         actionPanel.add(clearButton);
@@ -166,14 +159,14 @@ public class LevelManagementScreen extends JPanel {
     private JPanel buildTableSection() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
-        JScrollPane scrollPane = new JScrollPane(levelTable);
+        JScrollPane scrollPane = new JScrollPane(gradeTable);
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(203, 213, 225)));
         panel.add(scrollPane, BorderLayout.CENTER);
         return panel;
     }
 
     private DefaultTableModel createTableModel() {
-        return new DefaultTableModel(new String[]{"UUID", "Name", "Grade", "Description", "Action"}, 0) {
+        return new DefaultTableModel(new String[]{"UUID", "Grade", "Name", "Description", "Action"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -182,76 +175,68 @@ public class LevelManagementScreen extends JPanel {
     }
 
     private void configureTable() {
-        levelTable.setRowHeight(34);
-        levelTable.setRowSorter(rowSorter);
-        levelTable.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        levelTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 13));
-        levelTable.getTableHeader().setReorderingAllowed(false);
-        levelTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
-        levelTable.setGridColor(new Color(226, 232, 240));
-        levelTable.setShowVerticalLines(false);
-        levelTable.getColumnModel().getColumn(0).setMinWidth(0);
-        levelTable.getColumnModel().getColumn(0).setMaxWidth(0);
-        levelTable.getColumnModel().getColumn(0).setWidth(0);
-        levelTable.getColumnModel().getColumn(4).setPreferredWidth(170);
-        levelTable.getColumnModel().getColumn(4).setCellRenderer(new ActionCellRenderer());
+        gradeTable.setRowHeight(34);
+        gradeTable.setRowSorter(rowSorter);
+        gradeTable.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        gradeTable.getTableHeader().setFont(new Font("SansSerif", Font.BOLD, 13));
+        gradeTable.getTableHeader().setReorderingAllowed(false);
+        gradeTable.setSelectionMode(ListSelectionModel.SINGLE_SELECTION);
+        gradeTable.setGridColor(new Color(226, 232, 240));
+        gradeTable.setShowVerticalLines(false);
+        gradeTable.getColumnModel().getColumn(0).setMinWidth(0);
+        gradeTable.getColumnModel().getColumn(0).setMaxWidth(0);
+        gradeTable.getColumnModel().getColumn(0).setWidth(0);
+        gradeTable.getColumnModel().getColumn(4).setPreferredWidth(170);
+        gradeTable.getColumnModel().getColumn(4).setCellRenderer(new ActionCellRenderer());
 
-        levelTable.addMouseListener(new MouseAdapter() {
+        gradeTable.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
-                int viewRow = levelTable.rowAtPoint(event.getPoint());
-                int viewColumn = levelTable.columnAtPoint(event.getPoint());
+                int viewRow = gradeTable.rowAtPoint(event.getPoint());
+                int viewColumn = gradeTable.columnAtPoint(event.getPoint());
                 if (viewRow < 0 || viewColumn != 4) {
                     return;
                 }
-                int row = levelTable.convertRowIndexToModel(viewRow);
+                int row = gradeTable.convertRowIndexToModel(viewRow);
 
-                Level selected = findLevelByUuid(String.valueOf(tableModel.getValueAt(row, 0)));
+                Grade selected = findGradeByUuid(String.valueOf(tableModel.getValueAt(row, 0)));
                 if (selected == null) {
                     return;
                 }
 
-                int cellX = levelTable.getCellRect(viewRow, 4, false).x;
-                int cellWidth = levelTable.getCellRect(viewRow, 4, false).width;
+                int cellX = gradeTable.getCellRect(viewRow, 4, false).x;
+                int cellWidth = gradeTable.getCellRect(viewRow, 4, false).width;
                 int relativeX = event.getX() - cellX;
                 if (relativeX < cellWidth / 2) {
                     if (!canUpdate()) {
-                        showStatus("Anda tidak punya izin update level.", true);
+                        showStatus("Anda tidak punya izin update grade.", true);
                         return;
                     }
-                    openLevelDialog(selected);
+                    openGradeDialog(selected);
                 } else {
                     if (!canDelete()) {
-                        showStatus("Anda tidak punya izin delete level.", true);
+                        showStatus("Anda tidak punya izin delete grade.", true);
                         return;
                     }
-                    deleteLevel(selected);
+                    deleteGrade(selected);
                 }
             }
         });
     }
 
-    private void loadLevels() {
+    private void loadGrades() {
         grades.clear();
-        grades.addAll(gradeRepository.findAllGrades());
-        levels.clear();
-        levels.addAll(levelManagementService.getAllLevels());
+        grades.addAll(gradeManagementService.getAllGrades());
         tableModel.setRowCount(0);
-        for (Level level : levels) {
-            tableModel.addRow(new Object[]{
-                    level.getUuid(),
-                    level.getName(),
-                    level.getGradeName(),
-                    level.getDescription(),
-                    ""
-            });
+        for (Grade grade : grades) {
+            tableModel.addRow(new Object[]{grade.getUuid(), grade.getGradeValue(), grade.getName(), grade.getDescription(), ""});
         }
     }
 
     private void applySearchFilter() {
         String text = searchField.getText();
         String rawKeyword = text == null ? "" : text.trim().toLowerCase();
-        if ("cari level...".equals(rawKeyword)) {
+        if ("cari grade...".equals(rawKeyword)) {
             rawKeyword = "";
         }
         final String keyword = rawKeyword;
@@ -273,29 +258,22 @@ public class LevelManagementScreen extends JPanel {
         });
     }
 
-    private Level findLevelByUuid(String uuid) {
-        for (Level level : levels) {
-            if (level.getUuid().equals(uuid)) {
-                return level;
+    private Grade findGradeByUuid(String uuid) {
+        for (Grade grade : grades) {
+            if (grade.getUuid().equals(uuid)) {
+                return grade;
             }
         }
         return null;
     }
 
-    private void openLevelDialog(Level editingLevel) {
-        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), editingLevel == null ? "Tambah Level" : "Edit Level", true);
+    private void openGradeDialog(Grade editingGrade) {
+        JDialog dialog = new JDialog((Frame) SwingUtilities.getWindowAncestor(this), editingGrade == null ? "Tambah Grade" : "Edit Grade", true);
         dialog.setLayout(new BorderLayout());
         dialog.getContentPane().setBackground(Color.WHITE);
 
+        JTextField valueField = createTextField();
         JTextField nameField = createTextField();
-        JComboBox<Grade> gradeComboBox = new JComboBox<>();
-        gradeComboBox.setFont(new Font("SansSerif", Font.PLAIN, 14));
-        gradeComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
-        gradeComboBox.setAlignmentX(Component.LEFT_ALIGNMENT);
-        for (Grade grade : grades) {
-            gradeComboBox.addItem(grade);
-        }
-
         JTextArea descriptionArea = new JTextArea(4, 20);
         descriptionArea.setLineWrap(true);
         descriptionArea.setWrapStyleWord(true);
@@ -310,27 +288,24 @@ public class LevelManagementScreen extends JPanel {
         noteLabel.setForeground(new Color(71, 85, 105));
         noteLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        if (editingLevel != null) {
-            nameField.setText(editingLevel.getName());
-            descriptionArea.setText(editingLevel.getDescription());
-            selectGrade(gradeComboBox, editingLevel.getGradeUuid());
-            noteLabel.setText("Perbarui nama dan deskripsi level.");
+        if (editingGrade != null) {
+            valueField.setText(String.valueOf(editingGrade.getGradeValue()));
+            nameField.setText(editingGrade.getName());
+            descriptionArea.setText(editingGrade.getDescription());
+            noteLabel.setText("Perbarui informasi grade.");
         } else {
-            if (gradeComboBox.getItemCount() > 0) {
-                gradeComboBox.setSelectedIndex(0);
-            }
-            noteLabel.setText("Buat level baru yang bisa dipakai di user.");
+            noteLabel.setText("Buat grade baru untuk mapping level.");
         }
 
         JPanel formPanel = new JPanel();
         formPanel.setBackground(Color.WHITE);
         formPanel.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
         formPanel.setLayout(new BoxLayout(formPanel, BoxLayout.Y_AXIS));
+        formPanel.add(createLabel("Grade Value"));
+        formPanel.add(valueField);
+        formPanel.add(Box.createVerticalStrut(10));
         formPanel.add(createLabel("Name"));
         formPanel.add(nameField);
-        formPanel.add(Box.createVerticalStrut(10));
-        formPanel.add(createLabel("Grade"));
-        formPanel.add(gradeComboBox);
         formPanel.add(Box.createVerticalStrut(10));
         formPanel.add(createLabel("Description"));
         formPanel.add(descriptionScroll);
@@ -343,7 +318,7 @@ public class LevelManagementScreen extends JPanel {
 
         RoundedButton cancelButton = createActionButton(CANCEL_ICON + " Batal", new Color(100, 116, 139), 122);
         RoundedButton saveButton = createActionButton(
-                editingLevel == null ? SAVE_ICON + " Simpan" : UPDATE_ICON + " Update",
+                editingGrade == null ? SAVE_ICON + " Simpan" : UPDATE_ICON + " Update",
                 new Color(14, 116, 144),
                 122
         );
@@ -351,17 +326,13 @@ public class LevelManagementScreen extends JPanel {
         cancelButton.addActionListener(event -> dialog.dispose());
         saveButton.addActionListener(event -> {
             try {
-                if (editingLevel == null) {
-                    Grade selectedGrade = (Grade) gradeComboBox.getSelectedItem();
-                    String gradeUuid = selectedGrade == null ? "" : selectedGrade.getUuid();
-                    levelManagementService.createLevel(nameField.getText(), descriptionArea.getText(), gradeUuid);
+                if (editingGrade == null) {
+                    gradeManagementService.createGrade(nameField.getText(), descriptionArea.getText(), valueField.getText());
                 } else {
-                    Grade selectedGrade = (Grade) gradeComboBox.getSelectedItem();
-                    String gradeUuid = selectedGrade == null ? "" : selectedGrade.getUuid();
-                    levelManagementService.updateLevel(editingLevel, nameField.getText(), descriptionArea.getText(), gradeUuid);
+                    gradeManagementService.updateGrade(editingGrade, nameField.getText(), descriptionArea.getText(), valueField.getText());
                 }
-                loadLevels();
-                showStatus(editingLevel == null ? "Level berhasil ditambahkan." : "Level berhasil diperbarui.", false);
+                loadGrades();
+                showStatus(editingGrade == null ? "Grade berhasil ditambahkan." : "Grade berhasil diperbarui.", false);
                 dialog.dispose();
             } catch (Exception exception) {
                 noteLabel.setForeground(new Color(220, 38, 38));
@@ -375,26 +346,16 @@ public class LevelManagementScreen extends JPanel {
 
         dialog.add(formPanel, BorderLayout.CENTER);
         dialog.add(footer, BorderLayout.SOUTH);
-        dialog.setSize(470, 480);
+        dialog.setSize(470, 500);
         dialog.setLocationRelativeTo(this);
         dialog.setResizable(false);
         dialog.setVisible(true);
     }
 
-    private void selectGrade(JComboBox<Grade> comboBox, String gradeUuid) {
-        for (int index = 0; index < comboBox.getItemCount(); index++) {
-            Grade grade = comboBox.getItemAt(index);
-            if (grade != null && grade.getUuid().equals(gradeUuid)) {
-                comboBox.setSelectedIndex(index);
-                return;
-            }
-        }
-    }
-
-    private void deleteLevel(Level level) {
+    private void deleteGrade(Grade grade) {
         int confirm = JOptionPane.showConfirmDialog(
                 this,
-                "Hapus level " + level.getName() + "?",
+                "Hapus grade " + grade.getName() + "?",
                 "Konfirmasi Hapus",
                 JOptionPane.YES_NO_OPTION,
                 JOptionPane.WARNING_MESSAGE
@@ -404,9 +365,9 @@ public class LevelManagementScreen extends JPanel {
         }
 
         try {
-            levelManagementService.deleteLevel(level);
-            loadLevels();
-            showStatus("Level berhasil dihapus.", false);
+            gradeManagementService.deleteGrade(grade);
+            loadGrades();
+            showStatus("Grade berhasil dihapus.", false);
         } catch (Exception exception) {
             showStatus(exception.getMessage(), true);
         }
@@ -448,8 +409,8 @@ public class LevelManagementScreen extends JPanel {
             JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 2));
             panel.setOpaque(true);
             panel.setBackground(isSelected ? table.getSelectionBackground() : Color.WHITE);
-            panel.add(createActionBadge(EDIT_ICON + " Edit", new Color(14, 116, 144), "Edit level"));
-            panel.add(createActionBadge(DELETE_ICON + " Delete", new Color(220, 38, 38), "Hapus level"));
+            panel.add(createActionBadge(EDIT_ICON + " Edit", new Color(14, 116, 144), "Edit grade"));
+            panel.add(createActionBadge(DELETE_ICON + " Delete", new Color(220, 38, 38), "Hapus grade"));
             return panel;
         }
     }
