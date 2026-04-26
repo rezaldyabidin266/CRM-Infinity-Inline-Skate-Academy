@@ -232,6 +232,81 @@ public class UserRepository {
         }
     }
 
+    public List<User> findMuridUsersForCoachLevelAndGrade(String coachUuid) {
+        String sql = "SELECT u.uuid, u.full_name, u.username, u.email, u.password_hash, "
+                + "u.role_uuid, r.name AS role, u.level_uuid, l.name AS level_name, u.is_super_admin, u.is_active, "
+                + "u.last_login_at, u.created_at, u.updated_at "
+                + "FROM users coach "
+                + "JOIN levels coach_level ON coach_level.uuid = coach.level_uuid "
+                + "JOIN users u ON u.level_uuid = coach.level_uuid "
+                + "JOIN levels l ON l.uuid = u.level_uuid "
+                + "JOIN roles r ON r.uuid = u.role_uuid "
+                + "WHERE coach.uuid = ? "
+                + "AND u.is_super_admin = 0 "
+                + "AND u.uuid <> coach.uuid "
+                + "AND l.grade_uuid = coach_level.grade_uuid "
+                + "AND (LOWER(r.name) LIKE '%murid%' OR LOWER(r.name) LIKE '%student%' OR LOWER(r.name) LIKE '%siswa%' OR LOWER(r.name) LIKE '%trial%') "
+                + "ORDER BY u.full_name ASC, u.username ASC";
+
+        List<User> users = new ArrayList<>();
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, coachUuid);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    users.add(mapUser(resultSet));
+                }
+            }
+            return users;
+        } catch (SQLException exception) {
+            throw new RuntimeException("Gagal mengambil daftar murid untuk coach.", exception);
+        }
+    }
+
+    public String[] findCoachLevelAndGrade(String coachUuid) {
+        String sql = "SELECT l.name AS level_name, g.name AS grade_name "
+                + "FROM users u "
+                + "LEFT JOIN levels l ON l.uuid = u.level_uuid "
+                + "LEFT JOIN grades g ON g.uuid = l.grade_uuid "
+                + "WHERE u.uuid = ? LIMIT 1";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, coachUuid);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return new String[]{
+                            resultSet.getString("level_name"),
+                            resultSet.getString("grade_name")
+                    };
+                }
+                return new String[]{null, null};
+            }
+        } catch (SQLException exception) {
+            throw new RuntimeException("Gagal mengambil level/grade coach.", exception);
+        }
+    }
+
+    public List<User> findMuridUsersByLevelUuid(String levelUuid) {
+        String sql = USER_SELECT
+                + "WHERE u.is_super_admin = 0 "
+                + "AND u.level_uuid = ? "
+                + "AND (LOWER(r.name) LIKE '%murid%' OR LOWER(r.name) LIKE '%student%' OR LOWER(r.name) LIKE '%siswa%' OR LOWER(r.name) LIKE '%trial%') "
+                + "ORDER BY u.full_name ASC, u.username ASC";
+        List<User> users = new ArrayList<>();
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, levelUuid);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    users.add(mapUser(resultSet));
+                }
+            }
+            return users;
+        } catch (SQLException exception) {
+            throw new RuntimeException("Gagal mengambil murid berdasarkan level.", exception);
+        }
+    }
+
     private User mapUser(ResultSet resultSet) throws SQLException {
         User user = new User();
         user.setUuid(resultSet.getString("uuid"));

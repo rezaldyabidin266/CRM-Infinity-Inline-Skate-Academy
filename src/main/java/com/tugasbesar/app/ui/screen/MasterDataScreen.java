@@ -30,6 +30,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
+import javax.swing.SwingConstants;
 import javax.swing.SwingUtilities;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.table.DefaultTableModel;
@@ -73,7 +74,7 @@ public class MasterDataScreen extends JPanel {
     private static final String ADD_ICON = "\u271A";
     private static final String REFRESH_ICON = "\u21BB";
     private static final String EXPORT_ICON = "\u21E9";
-    private static final String JASPER_ICON = "\u2399";
+    private static final String PDF_ICON = "\uD83D\uDCC4";
     private static final String IMPORT_ICON = "\u21E7";
     private static final String EDIT_ICON = "\u270E";
     private static final String DELETE_ICON = "\u2716";
@@ -136,6 +137,13 @@ public class MasterDataScreen extends JPanel {
     private JPanel buildTableSection() {
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
+        JPanel statusPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        statusPanel.setOpaque(false);
+        statusPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 8, 0));
+        statusLabel.setHorizontalAlignment(SwingConstants.LEFT);
+        statusPanel.add(statusLabel);
+        panel.add(statusPanel, BorderLayout.NORTH);
+
         JScrollPane scrollPane = new JScrollPane(masterTable);
         scrollPane.setBorder(BorderFactory.createLineBorder(new Color(203, 213, 225)));
         panel.add(scrollPane, BorderLayout.CENTER);
@@ -157,8 +165,8 @@ public class MasterDataScreen extends JPanel {
         actionPanel.setOpaque(false);
         RoundedButton addButton = createActionButton(ADD_ICON + " Tambah", new Color(14, 116, 144), 132);
         RoundedButton refreshButton = createActionButton(REFRESH_ICON + " Refresh", new Color(71, 85, 105), 142);
-        RoundedButton exportButton = createActionButton(EXPORT_ICON + " Export", new Color(2, 132, 199), 154);
-        RoundedButton jasperButton = createActionButton(JASPER_ICON + " Jasper PDF", new Color(29, 78, 216), 176);
+        RoundedButton exportButton = createActionButton(EXPORT_ICON + " Export Excel", new Color(22, 163, 74), 176);
+        RoundedButton jasperButton = createActionButton(PDF_ICON + " Export PDF", new Color(220, 38, 38), 164);
         RoundedButton importButton = createActionButton(IMPORT_ICON + " Import", new Color(22, 163, 74), 154);
         RoundedButton searchButton = createActionButton(SEARCH_ICON + " Search", new Color(30, 64, 175), 126);
         RoundedButton clearButton = createActionButton(CLEAR_ICON + " Clear", new Color(100, 116, 139), 126);
@@ -231,8 +239,6 @@ public class MasterDataScreen extends JPanel {
         wrapper.add(actionPanel);
         wrapper.add(Box.createVerticalStrut(12));
         wrapper.add(filterPanel);
-        wrapper.add(Box.createVerticalStrut(18));
-        wrapper.add(statusLabel);
         return wrapper;
     }
 
@@ -640,6 +646,7 @@ public class MasterDataScreen extends JPanel {
 
     private void showStatus(String message, boolean error) {
         statusLabel.setText(message == null || message.trim().isEmpty() ? " " : message);
+        statusLabel.setHorizontalAlignment(SwingConstants.LEFT);
         statusLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         statusLabel.setForeground(error ? new Color(220, 38, 38) : new Color(22, 163, 74));
         statusLabel.setOpaque(true);
@@ -673,10 +680,8 @@ public class MasterDataScreen extends JPanel {
             return;
         }
         JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Export Master Data");
+        chooser.setDialogTitle("Export Master Data (Excel)");
         chooser.setAcceptAllFileFilterUsed(false);
-        chooser.addChoosableFileFilter(new FileNameExtensionFilter("Excel Workbook (*.xlsx)", "xlsx"));
-        chooser.addChoosableFileFilter(new FileNameExtensionFilter("CSV File (*.csv)", "csv"));
         chooser.setFileFilter(new FileNameExtensionFilter("Excel Workbook (*.xlsx)", "xlsx"));
         if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
             return;
@@ -687,16 +692,12 @@ public class MasterDataScreen extends JPanel {
             showStatus("Lokasi file export tidak valid.", true);
             return;
         }
-        String name = file.getName().toLowerCase();
         try {
-            if (name.endsWith(".csv")) {
-                exportCsv(file);
-            } else {
-                if (!name.endsWith(".xlsx")) {
-                    file = appendExtension(file, "xlsx");
-                }
-                exportXlsx(file);
+            String name = file.getName().toLowerCase();
+            if (!name.endsWith(".xlsx")) {
+                file = appendExtension(file, "xlsx");
             }
+            exportXlsx(file);
         } catch (Exception exception) {
             showStatus("Gagal export: " + exception.getMessage(), true);
         }

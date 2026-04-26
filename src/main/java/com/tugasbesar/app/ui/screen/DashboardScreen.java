@@ -19,6 +19,8 @@ import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
 import javax.swing.Icon;
+import javax.swing.ImageIcon;
+import javax.imageio.ImageIO;
 import javax.swing.plaf.basic.BasicButtonUI;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -30,9 +32,13 @@ import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GridLayout;
 import java.awt.Insets;
+import java.awt.Image;
 import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -122,6 +128,13 @@ public class DashboardScreen extends JPanel {
         userInfoLabel.setIconTextGap(8);
         userInfoLabel.setPreferredSize(new Dimension(170, 44));
         userInfoLabel.setMinimumSize(new Dimension(170, 44));
+        userInfoLabel.setCursor(java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.HAND_CURSOR));
+        userInfoLabel.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                openUserProfile();
+            }
+        });
 
         RoundedButton logoutButton = new RoundedButton("\u21AA Logout", new Color(249, 115, 22), Color.WHITE, null);
         logoutButton.setPreferredSize(new Dimension(132, 44));
@@ -142,31 +155,14 @@ public class DashboardScreen extends JPanel {
         JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 12, 0));
         panel.setOpaque(false);
 
-        JPanel logoPanel = new JPanel(new GridLayout(2, 1, 0, 0));
-        logoPanel.setBackground(new Color(255, 255, 255));
-        logoPanel.setPreferredSize(new Dimension(48, 48));
-        logoPanel.setMaximumSize(new Dimension(48, 48));
-        logoPanel.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createLineBorder(HEADER_ACCENT, 2),
-                BorderFactory.createEmptyBorder(4, 4, 4, 4)));
-
-        JLabel topMark = new JLabel("CRM", SwingConstants.CENTER);
-        topMark.setFont(new Font("SansSerif", Font.BOLD, 13));
-        topMark.setForeground(new Color(15, 23, 42));
-
-        JLabel bottomMark = new JLabel("II", SwingConstants.CENTER);
-        bottomMark.setFont(new Font("SansSerif", Font.BOLD, 15));
-        bottomMark.setForeground(new Color(8, 145, 178));
-
-        logoPanel.add(topMark);
-        logoPanel.add(bottomMark);
+        JLabel logoLabel = createBrandLogoLabel();
 
         JPanel textPanel = new JPanel();
         textPanel.setOpaque(false);
         textPanel.setLayout(new BoxLayout(textPanel, BoxLayout.Y_AXIS));
 
         JLabel titleLabel = new JLabel("CRM Infinity Inline Skate Academy");
-        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 24));
+        titleLabel.setFont(new Font("SansSerif", Font.BOLD, 23));
         titleLabel.setForeground(Color.WHITE);
         titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
@@ -179,9 +175,111 @@ public class DashboardScreen extends JPanel {
         textPanel.add(Box.createVerticalStrut(4));
         textPanel.add(subtitleLabel);
 
-        panel.add(logoPanel);
+        panel.add(logoLabel);
         panel.add(textPanel);
         return panel;
+    }
+
+    private JLabel createBrandLogoLabel() {
+        String[] candidates = new String[]{
+                "src/main/java/com/tugasbesar/app/assets/logo2.png",
+                "src/main/java/com/tugasbesar/app/assets/logo.png"
+        };
+
+        for (String path : candidates) {
+            File file = new File(path);
+            if (!file.exists()) {
+                continue;
+            }
+            BufferedImage source = readTrimmedImage(file);
+            if (source == null || source.getWidth() <= 0 || source.getHeight() <= 0) {
+                continue;
+            }
+            Image scaled = scaleToFit(source, 54, 42);
+            JLabel label = new JLabel(new ImageIcon(scaled));
+            label.setHorizontalAlignment(SwingConstants.CENTER);
+            label.setVerticalAlignment(SwingConstants.CENTER);
+            label.setPreferredSize(new Dimension(54, 42));
+            label.setMinimumSize(new Dimension(54, 42));
+            return label;
+        }
+
+        JPanel fallbackPanel = new JPanel(new GridLayout(2, 1, 0, 0));
+        fallbackPanel.setBackground(new Color(255, 255, 255));
+        fallbackPanel.setPreferredSize(new Dimension(48, 48));
+        fallbackPanel.setMaximumSize(new Dimension(48, 48));
+        fallbackPanel.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(HEADER_ACCENT, 2),
+                BorderFactory.createEmptyBorder(4, 4, 4, 4)));
+
+        JLabel topMark = new JLabel("CRM", SwingConstants.CENTER);
+        topMark.setFont(new Font("SansSerif", Font.BOLD, 13));
+        topMark.setForeground(new Color(15, 23, 42));
+        JLabel bottomMark = new JLabel("II", SwingConstants.CENTER);
+        bottomMark.setFont(new Font("SansSerif", Font.BOLD, 15));
+        bottomMark.setForeground(new Color(8, 145, 178));
+        fallbackPanel.add(topMark);
+        fallbackPanel.add(bottomMark);
+
+        JLabel wrapper = new JLabel();
+        wrapper.setLayout(new BorderLayout());
+        wrapper.add(fallbackPanel, BorderLayout.CENTER);
+        wrapper.setPreferredSize(new Dimension(54, 42));
+        return wrapper;
+    }
+
+    private BufferedImage readTrimmedImage(File file) {
+        try {
+            BufferedImage source = ImageIO.read(file);
+            if (source == null) {
+                return null;
+            }
+            return trimTransparentPadding(source);
+        } catch (IOException exception) {
+            return null;
+        }
+    }
+
+    private BufferedImage trimTransparentPadding(BufferedImage source) {
+        int minX = source.getWidth();
+        int minY = source.getHeight();
+        int maxX = -1;
+        int maxY = -1;
+
+        for (int y = 0; y < source.getHeight(); y++) {
+            for (int x = 0; x < source.getWidth(); x++) {
+                int alpha = (source.getRGB(x, y) >> 24) & 0xFF;
+                if (alpha > 8) {
+                    if (x < minX) {
+                        minX = x;
+                    }
+                    if (y < minY) {
+                        minY = y;
+                    }
+                    if (x > maxX) {
+                        maxX = x;
+                    }
+                    if (y > maxY) {
+                        maxY = y;
+                    }
+                }
+            }
+        }
+
+        if (maxX < minX || maxY < minY) {
+            return source;
+        }
+        return source.getSubimage(minX, minY, (maxX - minX) + 1, (maxY - minY) + 1);
+    }
+
+    private Image scaleToFit(BufferedImage source, int maxWidth, int maxHeight) {
+        double widthScale = maxWidth / (double) source.getWidth();
+        double heightScale = maxHeight / (double) source.getHeight();
+        double scale = Math.min(widthScale, heightScale);
+
+        int targetWidth = Math.max(1, (int) Math.round(source.getWidth() * scale));
+        int targetHeight = Math.max(1, (int) Math.round(source.getHeight() * scale));
+        return source.getScaledInstance(targetWidth, targetHeight, Image.SCALE_SMOOTH);
     }
 
     private JPanel buildBodyWrapper() {
@@ -241,14 +339,27 @@ public class DashboardScreen extends JPanel {
         List<AppModule> orderedModules = new ArrayList<>(user.getAccessibleModules());
         orderedModules.sort((left, right) -> Integer.compare(navOrder(left.getName()), navOrder(right.getName())));
 
-        AppModule userModule = findModuleByName(orderedModules, "User");
-        if (userModule != null) {
-            JButton masterButton = createMasterDropdownButton(userModule);
+        AppModule muridModule = findModuleByName(orderedModules, "Master Murid");
+        AppModule coachModule = findModuleByName(orderedModules, "Master Coach");
+        AppModule equipmentModule = findModuleByName(orderedModules, "Master Peralatan");
+        AppModule attendanceModule = findModuleByName(orderedModules, "Absensi");
+        AppModule masterAttendanceModule = findModuleByName(orderedModules, "Master Absensi");
+        if (muridModule != null || coachModule != null || equipmentModule != null || masterAttendanceModule != null) {
+            JButton masterButton = createMasterDropdownButton(muridModule, coachModule, equipmentModule, masterAttendanceModule);
             navMenuPanel.add(masterButton);
         }
 
         for (AppModule module : orderedModules) {
             if ("Dashboard".equalsIgnoreCase(module.getName())) {
+                continue;
+            }
+            if ("Laporan".equalsIgnoreCase(module.getName())) {
+                continue;
+            }
+            if ("Master Murid".equalsIgnoreCase(module.getName())
+                    || "Master Coach".equalsIgnoreCase(module.getName())
+                    || "Master Peralatan".equalsIgnoreCase(module.getName())
+                    || "Master Absensi".equalsIgnoreCase(module.getName())) {
                 continue;
             }
             String buttonLabel;
@@ -281,14 +392,17 @@ public class DashboardScreen extends JPanel {
         if ("Grade".equalsIgnoreCase(moduleName)) {
             return 3;
         }
-        if ("Role".equalsIgnoreCase(moduleName)) {
+        if ("Absensi".equalsIgnoreCase(moduleName)) {
             return 4;
         }
-        if ("Laporan".equalsIgnoreCase(moduleName)) {
+        if ("Role".equalsIgnoreCase(moduleName)) {
             return 5;
         }
-        if ("Pengaturan".equalsIgnoreCase(moduleName)) {
+        if ("Laporan".equalsIgnoreCase(moduleName)) {
             return 6;
+        }
+        if ("Pengaturan".equalsIgnoreCase(moduleName)) {
+            return 7;
         }
         return 50;
     }
@@ -302,7 +416,7 @@ public class DashboardScreen extends JPanel {
         return null;
     }
 
-    private JButton createMasterDropdownButton(AppModule userModule) {
+    private JButton createMasterDropdownButton(AppModule muridModule, AppModule coachModule, AppModule equipmentModule, AppModule masterAttendanceModule) {
         JButton button = createNavButton("MASTER", createNavLabel("\u2630", "Master \u25BE"));
         JPopupMenu popupMenu = new JPopupMenu();
         popupMenu.setBorder(BorderFactory.createLineBorder(new Color(148, 163, 184)));
@@ -318,7 +432,12 @@ public class DashboardScreen extends JPanel {
         masterMurid.setHorizontalAlignment(SwingConstants.LEFT);
         masterMurid.setHorizontalTextPosition(SwingConstants.RIGHT);
         masterMurid.setPreferredSize(new Dimension(190, 34));
-        masterMurid.addActionListener(event -> openMasterData(userModule, MasterDataScreen.MasterType.MURID));
+        masterMurid.setEnabled(muridModule != null);
+        masterMurid.addActionListener(event -> {
+            if (muridModule != null) {
+                openMasterData(muridModule, MasterDataScreen.MasterType.MURID);
+            }
+        });
 
         JMenuItem masterCoach = new JMenuItem("Master Coach");
         masterCoach.setFont(new Font("SansSerif", Font.BOLD, 13));
@@ -329,10 +448,49 @@ public class DashboardScreen extends JPanel {
         masterCoach.setHorizontalAlignment(SwingConstants.LEFT);
         masterCoach.setHorizontalTextPosition(SwingConstants.RIGHT);
         masterCoach.setPreferredSize(new Dimension(190, 34));
-        masterCoach.addActionListener(event -> openMasterData(userModule, MasterDataScreen.MasterType.COACH));
+        masterCoach.setEnabled(coachModule != null);
+        masterCoach.addActionListener(event -> {
+            if (coachModule != null) {
+                openMasterData(coachModule, MasterDataScreen.MasterType.COACH);
+            }
+        });
+
+        JMenuItem masterPeralatan = new JMenuItem("Master Peralatan");
+        masterPeralatan.setFont(new Font("SansSerif", Font.BOLD, 13));
+        masterPeralatan.setIcon(UIManager.getIcon("FileView.computerIcon"));
+        masterPeralatan.setBorder(BorderFactory.createEmptyBorder(6, 4, 6, 8));
+        masterPeralatan.setMargin(new Insets(0, 0, 0, 0));
+        masterPeralatan.setIconTextGap(8);
+        masterPeralatan.setHorizontalAlignment(SwingConstants.LEFT);
+        masterPeralatan.setHorizontalTextPosition(SwingConstants.RIGHT);
+        masterPeralatan.setPreferredSize(new Dimension(190, 34));
+        masterPeralatan.setEnabled(equipmentModule != null);
+        masterPeralatan.addActionListener(event -> {
+            if (equipmentModule != null) {
+                openMasterEquipment(equipmentModule);
+            }
+        });
+
+        JMenuItem masterAbsensi = new JMenuItem("Master Absensi");
+        masterAbsensi.setFont(new Font("SansSerif", Font.BOLD, 13));
+        masterAbsensi.setIcon(UIManager.getIcon("FileView.floppyDriveIcon"));
+        masterAbsensi.setBorder(BorderFactory.createEmptyBorder(6, 4, 6, 8));
+        masterAbsensi.setMargin(new Insets(0, 0, 0, 0));
+        masterAbsensi.setIconTextGap(8);
+        masterAbsensi.setHorizontalAlignment(SwingConstants.LEFT);
+        masterAbsensi.setHorizontalTextPosition(SwingConstants.RIGHT);
+        masterAbsensi.setPreferredSize(new Dimension(190, 34));
+        masterAbsensi.setEnabled(masterAttendanceModule != null);
+        masterAbsensi.addActionListener(event -> {
+            if (masterAttendanceModule != null) {
+                openMasterAttendance(masterAttendanceModule);
+            }
+        });
 
         popupMenu.add(masterMurid);
         popupMenu.add(masterCoach);
+        popupMenu.add(masterPeralatan);
+        popupMenu.add(masterAbsensi);
 
         button.addActionListener(event -> popupMenu.show(button, 0, button.getHeight()));
         return button;
@@ -347,6 +505,9 @@ public class DashboardScreen extends JPanel {
         }
         if ("Grade".equalsIgnoreCase(moduleName)) {
             return createNavLabel("\u25A3", "Grade");
+        }
+        if ("Absensi".equalsIgnoreCase(moduleName)) {
+            return createNavLabel("\uD83D\uDCC5", "Absensi");
         }
         if ("Role".equalsIgnoreCase(moduleName)) {
             return createNavLabel("\u2699", "Roles");
@@ -462,6 +623,13 @@ public class DashboardScreen extends JPanel {
             return;
         }
 
+        if ("Absensi".equalsIgnoreCase(module.getName())) {
+            setHeader("Absensi", "Isi checklist absensi siswa berdasarkan form aktif coach.");
+            setBody(new CoachAttendanceScreen(user, module));
+            highlightNav(module.getCode());
+            return;
+        }
+
         JPanel placeholder = new JPanel();
         placeholder.setOpaque(false);
         placeholder.setBorder(BorderFactory.createEmptyBorder(18, 0, 0, 0));
@@ -494,6 +662,23 @@ public class DashboardScreen extends JPanel {
             setHeader("Master Coach", "Daftar user kategori coach/pelatih untuk kebutuhan report.");
         }
         setBody(new MasterDataScreen(user, module, type, this::handleSessionRefresh));
+        highlightNav("MASTER");
+    }
+
+    private void openMasterEquipment(AppModule module) {
+        setHeader("Master Peralatan", "Kelola data peralatan sepatu roda.");
+        setBody(new MasterEquipmentScreen(user, module, this::handleSessionRefresh));
+        highlightNav("MASTER");
+    }
+
+    private void openUserProfile() {
+        setHeader("Profile User", "Lihat informasi akun yang sedang login.");
+        setBody(new UserProfileScreen(user));
+    }
+
+    private void openMasterAttendance(AppModule module) {
+        setHeader("Master Absensi", "Buat form absensi coach per periode dan level.");
+        setBody(new MasterAttendanceScreen(user, module));
         highlightNav("MASTER");
     }
 

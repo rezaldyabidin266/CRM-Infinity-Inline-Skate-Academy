@@ -15,6 +15,7 @@ import java.awt.geom.Ellipse2D;
 import java.awt.geom.Path2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.geom.Point2D;
+import java.awt.geom.AffineTransform;
 
 public class AnimatedBackgroundPanel extends JPanel {
     private float phase;
@@ -67,6 +68,12 @@ public class AnimatedBackgroundPanel extends JPanel {
             double ribbonY = height * (0.16 + (i * 0.18)) + Math.sin(offset) * 12;
             drawRibbon(g2, width, height, ribbonY, 48 + (i * 8), i);
         }
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.24f));
+        drawSkateTracks(g2, width, height);
+
+        g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.34f));
+        drawSkateWheels(g2, width, height);
 
         g2.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, 0.2f));
         g2.setColor(new Color(255, 255, 255, 150));
@@ -124,5 +131,54 @@ public class AnimatedBackgroundPanel extends JPanel {
         g2.setColor(new Color(255, 255, 255, 70));
         g2.fill(new RoundRectangle2D.Double(width * 0.08, height * 0.1, width * 0.18, 8, 8, 8));
         g2.fill(new RoundRectangle2D.Double(width * 0.68, height * 0.82, width * 0.14, 8, 8, 8));
+    }
+
+    private void drawSkateTracks(Graphics2D g2, int width, int height) {
+        g2.setStroke(new BasicStroke(8f, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
+        g2.setColor(new Color(56, 189, 248, 70));
+
+        Path2D.Double firstTrack = new Path2D.Double();
+        firstTrack.moveTo(width * 0.04, height * 0.74);
+        firstTrack.curveTo(width * 0.22, height * 0.6, width * 0.44, height * 0.86, width * 0.68, height * 0.72);
+        firstTrack.curveTo(width * 0.82, height * 0.64, width * 0.93, height * 0.8, width * 1.03, height * 0.7);
+        g2.draw(firstTrack);
+
+        g2.setColor(new Color(45, 212, 191, 62));
+        Path2D.Double secondTrack = new Path2D.Double();
+        secondTrack.moveTo(width * 0.0, height * 0.36);
+        secondTrack.curveTo(width * 0.18, height * 0.48, width * 0.34, height * 0.22, width * 0.55, height * 0.34);
+        secondTrack.curveTo(width * 0.74, height * 0.44, width * 0.9, height * 0.24, width * 1.02, height * 0.34);
+        g2.draw(secondTrack);
+    }
+
+    private void drawSkateWheels(Graphics2D g2, int width, int height) {
+        paintWheel(g2, width * 0.14 + Math.sin(phase * 1.4f) * 10, height * 0.78 + Math.cos(phase * 1.1f) * 6, 54,
+                new Color(34, 211, 238, 95));
+        paintWheel(g2, width * 0.82 + Math.cos(phase * 1.15f) * 12, height * 0.2 + Math.sin(phase * 1.4f) * 8, 48,
+                new Color(167, 139, 250, 92));
+        paintWheel(g2, width * 0.9 + Math.sin(phase * 0.85f) * 9, height * 0.74 + Math.cos(phase * 1.2f) * 6, 36,
+                new Color(103, 232, 249, 86));
+    }
+
+    private void paintWheel(Graphics2D g2, double centerX, double centerY, int size, Color color) {
+        Graphics2D wheel = (Graphics2D) g2.create();
+        wheel.translate(centerX, centerY);
+        wheel.rotate(phase * 2.6f);
+
+        wheel.setColor(new Color(color.getRed(), color.getGreen(), color.getBlue(), Math.min(130, color.getAlpha() + 30)));
+        wheel.fill(new Ellipse2D.Double(-size / 2.0, -size / 2.0, size, size));
+
+        wheel.setColor(new Color(15, 23, 42, 170));
+        wheel.fill(new Ellipse2D.Double(-size / 4.0, -size / 4.0, size / 2.0, size / 2.0));
+
+        wheel.setStroke(new BasicStroke(2.1f));
+        wheel.setColor(new Color(224, 242, 254, 170));
+        for (int i = 0; i < 5; i++) {
+            AffineTransform original = wheel.getTransform();
+            wheel.rotate((Math.PI * 2 / 5) * i);
+            wheel.drawLine(0, 0, size / 2 - 4, 0);
+            wheel.setTransform(original);
+        }
+        wheel.dispose();
     }
 }
