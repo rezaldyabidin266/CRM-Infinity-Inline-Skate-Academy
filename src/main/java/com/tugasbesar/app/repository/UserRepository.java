@@ -15,10 +15,11 @@ import java.util.List;
 
 public class UserRepository {
     private static final String USER_SELECT = "SELECT u.uuid, u.full_name, u.username, u.email, u.password_hash, "
-            + "u.role_uuid, r.name AS role, u.level_uuid, l.name AS level_name, u.is_super_admin, u.is_active, "
+            + "u.role_uuid, r.name AS role, u.grade_uuid, g.name AS grade_name, u.level_uuid, l.name AS level_name, u.is_super_admin, u.is_active, "
             + "u.last_login_at, u.created_at, u.updated_at "
             + "FROM users u "
             + "JOIN roles r ON r.uuid = u.role_uuid "
+            + "LEFT JOIN grades g ON g.uuid = u.grade_uuid "
             + "LEFT JOIN levels l ON l.uuid = u.level_uuid ";
 
     public boolean existsByUsername(String username) {
@@ -72,8 +73,8 @@ public class UserRepository {
     }
 
     public User save(User user) {
-        String sql = "INSERT INTO users (uuid, full_name, username, email, password_hash, role_uuid, level_uuid, is_super_admin, is_active, last_login_at) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO users (uuid, full_name, username, email, password_hash, role_uuid, grade_uuid, level_uuid, is_super_admin, is_active, last_login_at) "
+                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -83,14 +84,15 @@ public class UserRepository {
             statement.setString(4, user.getEmail());
             statement.setString(5, user.getPasswordHash());
             statement.setString(6, user.getRoleUuid());
-            statement.setString(7, user.getLevelUuid());
-            statement.setBoolean(8, user.isSuperAdmin());
-            statement.setBoolean(9, user.isActive());
+            statement.setString(7, user.getGradeUuid());
+            statement.setString(8, user.getLevelUuid());
+            statement.setBoolean(9, user.isSuperAdmin());
+            statement.setBoolean(10, user.isActive());
 
             if (user.getLastLoginAt() == null) {
-                statement.setNull(10, Types.TIMESTAMP);
+                statement.setNull(11, Types.TIMESTAMP);
             } else {
-                statement.setTimestamp(10, Timestamp.valueOf(user.getLastLoginAt()));
+                statement.setTimestamp(11, Timestamp.valueOf(user.getLastLoginAt()));
             }
 
             statement.executeUpdate();
@@ -102,7 +104,7 @@ public class UserRepository {
 
     public void update(User user) {
         String sql = "UPDATE users SET full_name = ?, username = ?, email = ?, password_hash = ?, "
-                + "role_uuid = ?, level_uuid = ?, is_active = ? WHERE uuid = ?";
+                + "role_uuid = ?, grade_uuid = ?, level_uuid = ?, is_active = ? WHERE uuid = ?";
 
         try (Connection connection = DatabaseConnection.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -111,9 +113,10 @@ public class UserRepository {
             statement.setString(3, user.getEmail());
             statement.setString(4, user.getPasswordHash());
             statement.setString(5, user.getRoleUuid());
-            statement.setString(6, user.getLevelUuid());
-            statement.setBoolean(7, user.isActive());
-            statement.setString(8, user.getUuid());
+            statement.setString(6, user.getGradeUuid());
+            statement.setString(7, user.getLevelUuid());
+            statement.setBoolean(8, user.isActive());
+            statement.setString(9, user.getUuid());
             statement.executeUpdate();
         } catch (SQLException exception) {
             throw new RuntimeException("Gagal memperbarui user.", exception);
@@ -316,6 +319,8 @@ public class UserRepository {
         user.setPasswordHash(resultSet.getString("password_hash"));
         user.setRole(resultSet.getString("role"));
         user.setRoleUuid(resultSet.getString("role_uuid"));
+        user.setGradeUuid(resultSet.getString("grade_uuid"));
+        user.setGradeName(resultSet.getString("grade_name"));
         user.setLevelUuid(resultSet.getString("level_uuid"));
         user.setLevelName(resultSet.getString("level_name"));
         user.setSuperAdmin(resultSet.getBoolean("is_super_admin"));

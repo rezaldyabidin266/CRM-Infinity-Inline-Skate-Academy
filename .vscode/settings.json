@@ -3,9 +3,18 @@
                                      "src/main/java"
                                  ],
     "java.project.outputPath":  "bin",
+    "java.configuration.runtimes":  [
+                                        {
+                                            "name":  "JavaSE-1.8",
+                                            "path":  "C:\\Program Files\\java\\jdk-8.0.482.8-hotspot",
+                                            "default":  true
+                                        }
+                                    ],
     "java.project.referencedLibraries":  [
                                              "lib/**/*.jar"
                                          ],
+    "java.import.gradle.enabled": false,
+    "java.import.maven.enabled": true,
     "java.configuration.updateBuildConfiguration":  "interactive",
     "java.debug.settings.onBuildFailureProceed":  false,
     "code-runner.runInTerminal":  true,

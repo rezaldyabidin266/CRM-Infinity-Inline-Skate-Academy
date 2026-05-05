@@ -344,8 +344,9 @@ public class DashboardScreen extends JPanel {
         AppModule equipmentModule = findModuleByName(orderedModules, "Master Peralatan");
         AppModule attendanceModule = findModuleByName(orderedModules, "Absensi");
         AppModule masterAttendanceModule = findModuleByName(orderedModules, "Master Absensi");
-        if (muridModule != null || coachModule != null || equipmentModule != null || masterAttendanceModule != null) {
-            JButton masterButton = createMasterDropdownButton(muridModule, coachModule, equipmentModule, masterAttendanceModule);
+        AppModule masterPaymentModule = findModuleByName(orderedModules, "Master Pembayaran");
+        if (muridModule != null || coachModule != null || equipmentModule != null || masterAttendanceModule != null || masterPaymentModule != null) {
+            JButton masterButton = createMasterDropdownButton(muridModule, coachModule, equipmentModule, masterAttendanceModule, masterPaymentModule);
             navMenuPanel.add(masterButton);
         }
 
@@ -359,7 +360,8 @@ public class DashboardScreen extends JPanel {
             if ("Master Murid".equalsIgnoreCase(module.getName())
                     || "Master Coach".equalsIgnoreCase(module.getName())
                     || "Master Peralatan".equalsIgnoreCase(module.getName())
-                    || "Master Absensi".equalsIgnoreCase(module.getName())) {
+                    || "Master Absensi".equalsIgnoreCase(module.getName())
+                    || "Master Pembayaran".equalsIgnoreCase(module.getName())) {
                 continue;
             }
             String buttonLabel;
@@ -416,7 +418,7 @@ public class DashboardScreen extends JPanel {
         return null;
     }
 
-    private JButton createMasterDropdownButton(AppModule muridModule, AppModule coachModule, AppModule equipmentModule, AppModule masterAttendanceModule) {
+    private JButton createMasterDropdownButton(AppModule muridModule, AppModule coachModule, AppModule equipmentModule, AppModule masterAttendanceModule, AppModule masterPaymentModule) {
         JButton button = createNavButton("MASTER", createNavLabel("\u2630", "Master \u25BE"));
         JPopupMenu popupMenu = new JPopupMenu();
         popupMenu.setBorder(BorderFactory.createLineBorder(new Color(148, 163, 184)));
@@ -487,10 +489,27 @@ public class DashboardScreen extends JPanel {
             }
         });
 
+        JMenuItem masterPembayaran = new JMenuItem("Master Pembayaran");
+        masterPembayaran.setFont(new Font("SansSerif", Font.BOLD, 13));
+        masterPembayaran.setIcon(UIManager.getIcon("FileView.fileIcon"));
+        masterPembayaran.setBorder(BorderFactory.createEmptyBorder(6, 4, 6, 8));
+        masterPembayaran.setMargin(new Insets(0, 0, 0, 0));
+        masterPembayaran.setIconTextGap(8);
+        masterPembayaran.setHorizontalAlignment(SwingConstants.LEFT);
+        masterPembayaran.setHorizontalTextPosition(SwingConstants.RIGHT);
+        masterPembayaran.setPreferredSize(new Dimension(190, 34));
+        masterPembayaran.setEnabled(masterPaymentModule != null);
+        masterPembayaran.addActionListener(event -> {
+            if (masterPaymentModule != null) {
+                openMasterPayment(masterPaymentModule);
+            }
+        });
+
         popupMenu.add(masterMurid);
         popupMenu.add(masterCoach);
         popupMenu.add(masterPeralatan);
         popupMenu.add(masterAbsensi);
+        popupMenu.add(masterPembayaran);
 
         button.addActionListener(event -> popupMenu.show(button, 0, button.getHeight()));
         return button;
@@ -679,6 +698,12 @@ public class DashboardScreen extends JPanel {
     private void openMasterAttendance(AppModule module) {
         setHeader("Master Absensi", "Buat form absensi coach per periode dan level.");
         setBody(new MasterAttendanceScreen(user, module));
+        highlightNav("MASTER");
+    }
+
+    private void openMasterPayment(AppModule module) {
+        setHeader("Master Pembayaran", "Kelola SPP murid per level, rate coach per grade, dan checklist pembayaran.");
+        setBody(new MasterPaymentScreen(user, module, this::handleSessionRefresh));
         highlightNav("MASTER");
     }
 

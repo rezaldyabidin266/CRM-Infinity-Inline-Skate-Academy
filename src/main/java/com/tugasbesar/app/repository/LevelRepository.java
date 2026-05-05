@@ -190,6 +190,23 @@ public class LevelRepository {
         }
     }
 
+    public Level findFirstByGradeUuid(String gradeUuid) {
+        String sql = LEVEL_SELECT + "WHERE l.grade_uuid = ? ORDER BY l.sort_order ASC, l.name ASC LIMIT 1";
+
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, gradeUuid);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (resultSet.next()) {
+                    return mapLevel(resultSet);
+                }
+            }
+            return null;
+        } catch (SQLException exception) {
+            throw new RuntimeException("Gagal mengambil level pertama berdasarkan grade.", exception);
+        }
+    }
+
     private Level mapLevel(ResultSet resultSet) throws SQLException {
         Level level = new Level();
         level.setUuid(resultSet.getString("uuid"));

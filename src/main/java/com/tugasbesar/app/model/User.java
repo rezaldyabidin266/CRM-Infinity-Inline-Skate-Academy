@@ -12,6 +12,8 @@ public class User {
     private String passwordHash;
     private String role;
     private String roleUuid;
+    private String gradeName;
+    private String gradeUuid;
     private String levelName;
     private String levelUuid;
     private boolean superAdmin;
@@ -75,6 +77,22 @@ public class User {
 
     public void setRoleUuid(String roleUuid) {
         this.roleUuid = roleUuid;
+    }
+
+    public String getGradeName() {
+        return gradeName;
+    }
+
+    public void setGradeName(String gradeName) {
+        this.gradeName = gradeName;
+    }
+
+    public String getGradeUuid() {
+        return gradeUuid;
+    }
+
+    public void setGradeUuid(String gradeUuid) {
+        this.gradeUuid = gradeUuid;
     }
 
     public String getLevelName() {

@@ -11,21 +11,20 @@ import com.tugasbesar.app.ui.component.RoundedButton;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
-import javax.swing.JFormattedTextField;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JCheckBox;
-import javax.swing.JSpinner;
 import javax.swing.JTable;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
-import javax.swing.SpinnerDateModel;
 import javax.swing.SwingConstants;
+import javax.swing.UIManager;
+import javax.swing.plaf.basic.BasicButtonUI;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -35,16 +34,14 @@ import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.Frame;
+import java.awt.GridLayout;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
-import java.text.SimpleDateFormat;
 import java.time.LocalDate;
-import java.time.ZoneId;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 public class MasterAttendanceScreen extends JPanel {
@@ -71,8 +68,7 @@ public class MasterAttendanceScreen extends JPanel {
     private final JComboBox<UserOption> coachFilterCombo;
     private final JComboBox<LevelOption> levelFilterCombo;
     private final JComboBox<String> pertemuanFilterCombo;
-    private final JSpinner dateFilterSpinner;
-    private final JCheckBox useDateFilterCheck;
+    private final JTextField dateFilterField;
 
     public MasterAttendanceScreen(User currentUser, AppModule modulePermission) {
         this.currentUser = currentUser;
@@ -93,8 +89,8 @@ public class MasterAttendanceScreen extends JPanel {
         this.coachFilterCombo = new JComboBox<>();
         this.levelFilterCombo = new JComboBox<>();
         this.pertemuanFilterCombo = new JComboBox<>(new String[]{"Semua Pertemuan", "1", "2", "3", "4", "5", "6", "7", "8"});
-        this.dateFilterSpinner = createDateSpinner();
-        this.useDateFilterCheck = new JCheckBox("Pakai Date");
+        this.dateFilterField = createDateField();
+        this.dateFilterField.setText(LocalDate.now().toString());
 
         setLayout(new BorderLayout(0, 8));
         setOpaque(false);
@@ -135,8 +131,8 @@ public class MasterAttendanceScreen extends JPanel {
 
         filterPanel.add(new JLabel("Coach"));
         filterPanel.add(coachFilterCombo);
-        filterPanel.add(useDateFilterCheck);
-        filterPanel.add(dateFilterSpinner);
+        filterPanel.add(new JLabel("Date"));
+        filterPanel.add(buildDateFieldGroup(dateFilterField));
         filterPanel.add(new JLabel("Class"));
         filterPanel.add(levelFilterCombo);
         filterPanel.add(new JLabel("Pertemuan"));
@@ -292,33 +288,46 @@ public class MasterAttendanceScreen extends JPanel {
         }
         levelFilterCombo.setPreferredSize(new Dimension(150, 34));
         pertemuanFilterCombo.setPreferredSize(new Dimension(140, 34));
-        dateFilterSpinner.setPreferredSize(new Dimension(130, 34));
-        useDateFilterCheck.setOpaque(false);
-        useDateFilterCheck.setSelected(false);
     }
 
     private void resetFilters() {
         coachFilterCombo.setSelectedIndex(0);
         levelFilterCombo.setSelectedIndex(0);
         pertemuanFilterCombo.setSelectedIndex(0);
-        useDateFilterCheck.setSelected(false);
-        dateFilterSpinner.setValue(new Date());
+        dateFilterField.setText(LocalDate.now().toString());
     }
 
-    private JSpinner createDateSpinner() {
-        SpinnerDateModel model = new SpinnerDateModel();
-        JSpinner spinner = new JSpinner(model);
-        JSpinner.DateEditor editor = new JSpinner.DateEditor(spinner, "yyyy-MM-dd");
-        spinner.setEditor(editor);
-        JFormattedTextField field = editor.getTextField();
-        field.setHorizontalAlignment(SwingConstants.LEFT);
-        spinner.setValue(new Date());
-        return spinner;
+    private JTextField createDateField() {
+        JTextField field = new JTextField();
+        field.setPreferredSize(new Dimension(130, 34));
+        field.setFont(new Font("SansSerif", Font.PLAIN, 13));
+        field.setEditable(false);
+        return field;
     }
 
-    private String selectedDateText() {
-        Date date = (Date) dateFilterSpinner.getValue();
-        return new SimpleDateFormat("yyyy-MM-dd").format(date);
+    private JPanel buildDateFieldGroup(JTextField dateField) {
+        JPanel panel = new JPanel(new FlowLayout(FlowLayout.LEFT, 4, 0));
+        panel.setOpaque(false);
+
+        JButton pickButton = new JButton("Calendar");
+        pickButton.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        pickButton.setFocusPainted(false);
+        pickButton.addActionListener(event -> {
+            LocalDate selected = openCalendarDialog(readDateField(dateField));
+            if (selected != null) {
+                dateField.setText(selected.toString());
+            }
+        });
+
+        JButton clearButton = new JButton("Clear");
+        clearButton.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        clearButton.setFocusPainted(false);
+        clearButton.addActionListener(event -> dateField.setText(""));
+
+        panel.add(dateField);
+        panel.add(pickButton);
+        panel.add(clearButton);
+        return panel;
     }
 
     private void loadData() {
@@ -331,7 +340,7 @@ public class MasterAttendanceScreen extends JPanel {
             sourceItems.clear();
             sourceItems.addAll(attendanceFormManagementService.getFormsByFilters(
                     coachOption == null ? "" : coachOption.uuid,
-                    useDateFilterCheck.isSelected() ? selectedDateText() : "",
+                    dateFilterField.getText(),
                     levelOption == null ? "" : levelOption.uuid,
                     pertemuan));
 
@@ -396,31 +405,41 @@ public class MasterAttendanceScreen extends JPanel {
             levelCombo.addItem(new LevelOption(level.getUuid(), level.getName()));
         }
 
-        JSpinner dateSpinner = createDateSpinner();
+        JTextField dateField = createDateField();
+        JPanel dateFieldPanel = buildDateFieldGroup(dateField);
         JComboBox<String> pertemuanCombo = new JComboBox<>(new String[]{"1","2","3","4","5","6","7","8"});
         JComboBox<String> activeCombo = new JComboBox<>(new String[]{"Aktif", "Nonaktif"});
         JTextArea notesArea = new JTextArea(3, 20);
         notesArea.setLineWrap(true);
         notesArea.setWrapStyleWord(true);
         JScrollPane notesScroll = new JScrollPane(notesArea);
+        JLabel coachGradeInfoLabel = new JLabel("Grade coach: -");
+        coachGradeInfoLabel.setFont(new Font("SansSerif", Font.PLAIN, 12));
+        coachGradeInfoLabel.setForeground(new Color(71, 85, 105));
 
         if (existing != null) {
             selectCoach(coachCombo, existing.getCoachUuid());
             selectLevel(levelCombo, existing.getLevelUuid());
             if (existing.getAttendanceDate() != null) {
-                dateSpinner.setValue(Date.from(existing.getAttendanceDate().atStartOfDay(ZoneId.systemDefault()).toInstant()));
+                dateField.setText(existing.getAttendanceDate().toString());
             }
             pertemuanCombo.setSelectedItem(String.valueOf(existing.getPertemuanKe()));
             activeCombo.setSelectedItem(existing.isActive() ? "Aktif" : "Nonaktif");
             notesArea.setText(safeText(existing.getNotes()));
+        } else {
+            dateField.setText(LocalDate.now().toString());
         }
 
+        coachCombo.addActionListener(event -> updateCoachGradeInfo(coachGradeInfoLabel, coachCombo));
+        updateCoachGradeInfo(coachGradeInfoLabel, coachCombo);
+
         addFormRow(formPanel, gbc, 0, "Coach", coachCombo);
-        addFormRow(formPanel, gbc, 1, "Class (Level)", levelCombo);
-        addFormRow(formPanel, gbc, 2, "Tanggal", dateSpinner);
-        addFormRow(formPanel, gbc, 3, "Pertemuan", pertemuanCombo);
-        addFormRow(formPanel, gbc, 4, "Status Form", activeCombo);
-        addFormRow(formPanel, gbc, 5, "Catatan", notesScroll);
+        addFormRow(formPanel, gbc, 1, "Info Grade", coachGradeInfoLabel);
+        addFormRow(formPanel, gbc, 2, "Class (Level)", levelCombo);
+        addFormRow(formPanel, gbc, 3, "Tanggal", dateFieldPanel);
+        addFormRow(formPanel, gbc, 4, "Pertemuan", pertemuanCombo);
+        addFormRow(formPanel, gbc, 5, "Status Form", activeCombo);
+        addFormRow(formPanel, gbc, 6, "Catatan", notesScroll);
 
         JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 10, 10));
         RoundedButton saveButton = new RoundedButton("Simpan", new Color(14, 116, 144), Color.WHITE, null);
@@ -432,7 +451,7 @@ public class MasterAttendanceScreen extends JPanel {
             try {
                 UserOption coach = (UserOption) coachCombo.getSelectedItem();
                 LevelOption level = (LevelOption) levelCombo.getSelectedItem();
-                String dateText = new SimpleDateFormat("yyyy-MM-dd").format((Date) dateSpinner.getValue());
+                String dateText = dateField.getText();
                 String pertemuan = String.valueOf(pertemuanCombo.getSelectedItem());
                 boolean active = "Aktif".equals(String.valueOf(activeCombo.getSelectedItem()));
 
@@ -508,6 +527,40 @@ public class MasterAttendanceScreen extends JPanel {
                 return;
             }
         }
+    }
+
+    private void updateCoachGradeInfo(JLabel label, JComboBox<UserOption> coachCombo) {
+        UserOption option = (UserOption) coachCombo.getSelectedItem();
+        if (option == null || option.uuid == null || option.uuid.trim().isEmpty()) {
+            label.setText("Grade coach: -");
+            return;
+        }
+        for (User coach : coachUsers) {
+            if (option.uuid.equals(coach.getUuid())) {
+                String grade = coach.getGradeName() == null || coach.getGradeName().trim().isEmpty() ? "-" : coach.getGradeName();
+                label.setText("Grade coach: " + grade);
+                return;
+            }
+        }
+        label.setText("Grade coach: -");
+    }
+
+    private LocalDate readDateField(JTextField field) {
+        String value = field.getText() == null ? "" : field.getText().trim();
+        if (value.isEmpty()) {
+            return LocalDate.now();
+        }
+        try {
+            return LocalDate.parse(value);
+        } catch (Exception exception) {
+            return LocalDate.now();
+        }
+    }
+
+    private LocalDate openCalendarDialog(LocalDate initialDate) {
+        CalendarPickerDialog dialog = new CalendarPickerDialog((Frame) null, initialDate == null ? LocalDate.now() : initialDate);
+        dialog.setVisible(true);
+        return dialog.getSelectedDate();
     }
 
     private void deleteForm(AttendanceForm form) {
@@ -649,6 +702,181 @@ public class MasterAttendanceScreen extends JPanel {
         @Override
         public String toString() {
             return name == null || name.trim().isEmpty() ? "-" : name;
+        }
+    }
+
+    private static final class CalendarPickerDialog extends JDialog {
+        private LocalDate monthCursor;
+        private LocalDate selectedDate;
+        private final JLabel monthLabel;
+        private final JPanel daysPanel;
+
+        private CalendarPickerDialog(Frame owner, LocalDate initialDate) {
+            super(owner, "Pilih Tanggal", true);
+            this.monthCursor = initialDate.withDayOfMonth(1);
+            this.selectedDate = initialDate;
+            this.monthLabel = new JLabel("", SwingConstants.CENTER);
+            this.daysPanel = new JPanel(new GridLayout(0, 7, 4, 4));
+
+            setLayout(new BorderLayout(8, 8));
+            ((JPanel) getContentPane()).setBorder(BorderFactory.createEmptyBorder(12, 12, 12, 12));
+            getContentPane().setBackground(new Color(248, 250, 252));
+
+            JPanel header = new JPanel(new BorderLayout(8, 0));
+            header.setOpaque(false);
+            JButton prevButton = new JButton("<");
+            JButton nextButton = new JButton(">");
+            prevButton.setUI(new BasicButtonUI());
+            nextButton.setUI(new BasicButtonUI());
+            prevButton.setPreferredSize(new Dimension(56, 34));
+            nextButton.setPreferredSize(new Dimension(56, 34));
+            prevButton.setFont(new Font("SansSerif", Font.BOLD, 14));
+            nextButton.setFont(new Font("SansSerif", Font.BOLD, 14));
+            prevButton.setBackground(new Color(226, 232, 240));
+            nextButton.setBackground(new Color(226, 232, 240));
+            prevButton.setForeground(new Color(15, 23, 42));
+            nextButton.setForeground(new Color(15, 23, 42));
+            prevButton.setOpaque(true);
+            nextButton.setOpaque(true);
+            prevButton.setContentAreaFilled(true);
+            nextButton.setContentAreaFilled(true);
+            prevButton.setBorder(BorderFactory.createLineBorder(new Color(148, 163, 184)));
+            nextButton.setBorder(BorderFactory.createLineBorder(new Color(148, 163, 184)));
+            prevButton.addActionListener(event -> {
+                monthCursor = monthCursor.minusMonths(1);
+                rebuildCalendar();
+            });
+            nextButton.addActionListener(event -> {
+                monthCursor = monthCursor.plusMonths(1);
+                rebuildCalendar();
+            });
+            monthLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
+            monthLabel.setForeground(new Color(15, 23, 42));
+            header.add(prevButton, BorderLayout.WEST);
+            header.add(monthLabel, BorderLayout.CENTER);
+            header.add(nextButton, BorderLayout.EAST);
+
+            JPanel weekHeader = new JPanel(new GridLayout(1, 7, 4, 4));
+            weekHeader.setOpaque(false);
+            String[] labels = {"Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"};
+            for (String label : labels) {
+                JLabel dayLabel = new JLabel(label, SwingConstants.CENTER);
+                dayLabel.setFont(new Font("SansSerif", Font.BOLD, 13));
+                dayLabel.setForeground(new Color(51, 65, 85));
+                weekHeader.add(dayLabel);
+            }
+
+            JPanel center = new JPanel(new BorderLayout(0, 6));
+            center.setOpaque(false);
+            daysPanel.setOpaque(false);
+            center.add(weekHeader, BorderLayout.NORTH);
+            center.add(daysPanel, BorderLayout.CENTER);
+
+            JPanel footer = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
+            footer.setOpaque(false);
+            JButton clearButton = new JButton("Clear");
+            JButton cancelButton = new JButton("Batal");
+            JButton okButton = new JButton("Pilih");
+            clearButton.setUI(new BasicButtonUI());
+            cancelButton.setUI(new BasicButtonUI());
+            okButton.setUI(new BasicButtonUI());
+            clearButton.addActionListener(event -> {
+                selectedDate = null;
+                dispose();
+            });
+            cancelButton.addActionListener(event -> dispose());
+            okButton.addActionListener(event -> dispose());
+            clearButton.setPreferredSize(new Dimension(84, 36));
+            cancelButton.setPreferredSize(new Dimension(84, 36));
+            okButton.setPreferredSize(new Dimension(84, 36));
+            clearButton.setBackground(new Color(226, 232, 240));
+            cancelButton.setBackground(new Color(226, 232, 240));
+            okButton.setBackground(new Color(14, 116, 144));
+            clearButton.setForeground(new Color(15, 23, 42));
+            cancelButton.setForeground(new Color(15, 23, 42));
+            okButton.setForeground(Color.WHITE);
+            clearButton.setOpaque(true);
+            cancelButton.setOpaque(true);
+            okButton.setOpaque(true);
+            clearButton.setContentAreaFilled(true);
+            cancelButton.setContentAreaFilled(true);
+            okButton.setContentAreaFilled(true);
+            clearButton.setBorder(BorderFactory.createLineBorder(new Color(148, 163, 184)));
+            cancelButton.setBorder(BorderFactory.createLineBorder(new Color(148, 163, 184)));
+            okButton.setBorder(BorderFactory.createLineBorder(new Color(8, 145, 178)));
+            footer.add(clearButton);
+            footer.add(cancelButton);
+            footer.add(okButton);
+
+            add(header, BorderLayout.NORTH);
+            add(center, BorderLayout.CENTER);
+            add(footer, BorderLayout.SOUTH);
+
+            rebuildCalendar();
+            setSize(520, 420);
+            setMinimumSize(new Dimension(520, 420));
+            setLocationRelativeTo(owner);
+        }
+
+        private void rebuildCalendar() {
+            monthLabel.setText(monthCursor.getMonth().name() + " " + monthCursor.getYear());
+            daysPanel.removeAll();
+
+            LocalDate firstDay = monthCursor.withDayOfMonth(1);
+            int leadingEmptyCells = firstDay.getDayOfWeek().getValue() - 1;
+            int daysInMonth = monthCursor.lengthOfMonth();
+
+            for (int i = 0; i < leadingEmptyCells; i++) {
+                JLabel spacer = new JLabel("");
+                spacer.setOpaque(false);
+                daysPanel.add(spacer);
+            }
+
+            for (int day = 1; day <= daysInMonth; day++) {
+                final LocalDate date = monthCursor.withDayOfMonth(day);
+                JButton button = new JButton(String.valueOf(day));
+                button.setUI(new BasicButtonUI());
+                button.setFocusPainted(false);
+                button.setOpaque(true);
+                button.setContentAreaFilled(true);
+                button.setBorderPainted(true);
+                button.setPreferredSize(new Dimension(60, 44));
+                button.setFont(new Font("SansSerif", Font.BOLD, 14));
+                button.setMargin(new Insets(0, 0, 0, 0));
+                if (date.equals(selectedDate)) {
+                    button.setBackground(new Color(16, 185, 129));
+                    button.setForeground(new Color(6, 24, 24));
+                    button.setBorder(BorderFactory.createLineBorder(new Color(5, 150, 105), 2));
+                } else if (date.equals(LocalDate.now())) {
+                    button.setBackground(new Color(224, 242, 254));
+                    button.setForeground(new Color(15, 23, 42));
+                    button.setBorder(BorderFactory.createLineBorder(new Color(56, 189, 248), 2));
+                } else {
+                    button.setBackground(new Color(255, 255, 255));
+                    button.setForeground(new Color(15, 23, 42));
+                    button.setBorder(BorderFactory.createLineBorder(new Color(203, 213, 225)));
+                }
+                button.addActionListener(event -> {
+                    selectedDate = date;
+                    rebuildCalendar();
+                });
+                daysPanel.add(button);
+            }
+
+            int totalCells = leadingEmptyCells + daysInMonth;
+            int trailingEmptyCells = (7 - (totalCells % 7)) % 7;
+            for (int i = 0; i < trailingEmptyCells; i++) {
+                JLabel spacer = new JLabel("");
+                spacer.setOpaque(false);
+                daysPanel.add(spacer);
+            }
+
+            daysPanel.revalidate();
+            daysPanel.repaint();
+        }
+
+        private LocalDate getSelectedDate() {
+            return selectedDate;
         }
     }
 }

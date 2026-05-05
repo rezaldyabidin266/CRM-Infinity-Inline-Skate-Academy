@@ -1,9 +1,11 @@
 package com.tugasbesar.app.service;
 
+import com.tugasbesar.app.model.Grade;
 import com.tugasbesar.app.model.Level;
 import com.tugasbesar.app.model.Role;
 import com.tugasbesar.app.model.User;
 import com.tugasbesar.app.repository.AccessControlRepository;
+import com.tugasbesar.app.repository.GradeRepository;
 import com.tugasbesar.app.repository.LevelRepository;
 import com.tugasbesar.app.repository.UserRepository;
 import com.tugasbesar.app.util.PasswordUtil;
@@ -15,11 +17,13 @@ public class UserManagementService {
     private final UserRepository userRepository;
     private final AccessControlRepository accessControlRepository;
     private final LevelRepository levelRepository;
+    private final GradeRepository gradeRepository;
 
     public UserManagementService() {
         this.userRepository = new UserRepository();
         this.accessControlRepository = new AccessControlRepository();
         this.levelRepository = new LevelRepository();
+        this.gradeRepository = new GradeRepository();
     }
 
     public List<User> getAllUsers() {
@@ -34,12 +38,16 @@ public class UserManagementService {
         return levelRepository.findAllLevels();
     }
 
-    public User createUser(String fullName, String username, String email, String password, String roleUuid, String levelName, boolean active) {
-        validateUserInput(null, fullName, username, email, password, roleUuid, levelName);
+    public List<Grade> getAllGrades() {
+        return gradeRepository.findAllGrades();
+    }
+
+    public User createUser(String fullName, String username, String email, String password, String roleUuid, String levelUuid, String gradeUuid, boolean active) {
+        validateUserInput(null, fullName, username, email, password, roleUuid, levelUuid, gradeUuid);
 
         User user = new User();
         Role role = findRoleByUuid(roleUuid);
-        Level level = levelRepository.findOrCreateByName(levelName.trim());
+        Level level = resolveLevel(role, levelUuid, gradeUuid);
         user.setUuid(UUID.randomUUID().toString());
         user.setFullName(fullName.trim());
         user.setUsername(username.trim());
@@ -47,6 +55,8 @@ public class UserManagementService {
         user.setPasswordHash(PasswordUtil.hash(password));
         user.setRole(role.getName());
         user.setRoleUuid(role.getUuid());
+        user.setGradeUuid(level.getGradeUuid());
+        user.setGradeName(level.getGradeName());
         user.setLevelName(level.getName());
         user.setLevelUuid(level.getUuid());
         user.setSuperAdmin(false);
@@ -55,20 +65,22 @@ public class UserManagementService {
         return userRepository.save(user);
     }
 
-    public void updateUser(User existingUser, String fullName, String username, String email, String password, String roleUuid, String levelName, boolean active) {
+    public void updateUser(User existingUser, String fullName, String username, String email, String password, String roleUuid, String levelUuid, String gradeUuid, boolean active) {
         if (existingUser == null) {
             throw new IllegalArgumentException("User yang dipilih tidak ditemukan.");
         }
 
-        validateUserInput(existingUser.getUuid(), fullName, username, email, password, roleUuid, levelName);
+        validateUserInput(existingUser.getUuid(), fullName, username, email, password, roleUuid, levelUuid, gradeUuid);
 
         existingUser.setFullName(fullName.trim());
         existingUser.setUsername(username.trim());
         existingUser.setEmail(email.trim().toLowerCase());
         Role role = findRoleByUuid(roleUuid);
-        Level level = levelRepository.findOrCreateByName(levelName.trim());
+        Level level = resolveLevel(role, levelUuid, gradeUuid);
         existingUser.setRole(role.getName());
         existingUser.setRoleUuid(role.getUuid());
+        existingUser.setGradeUuid(level.getGradeUuid());
+        existingUser.setGradeName(level.getGradeName());
         existingUser.setLevelName(level.getName());
         existingUser.setLevelUuid(level.getUuid());
         existingUser.setActive(active);
@@ -96,7 +108,7 @@ public class UserManagementService {
         userRepository.deleteByUuid(user.getUuid());
     }
 
-    private void validateUserInput(String currentUserUuid, String fullName, String username, String email, String password, String roleUuid, String levelName) {
+    private void validateUserInput(String currentUserUuid, String fullName, String username, String email, String password, String roleUuid, String levelUuid, String gradeUuid) {
         if (fullName == null || fullName.trim().isEmpty()) {
             throw new IllegalArgumentException("Nama lengkap wajib diisi.");
         }
@@ -121,8 +133,24 @@ public class UserManagementService {
             throw new IllegalArgumentException("Role tidak tersedia.");
         }
 
-        if (levelName == null || levelName.trim().isEmpty()) {
-            throw new IllegalArgumentException("Level wajib diisi.");
+        Role role = findRoleByUuid(roleUuid);
+        if (isCoachRole(role)) {
+            if (gradeUuid == null || gradeUuid.trim().isEmpty()) {
+                throw new IllegalArgumentException("Grade wajib dipilih untuk coach.");
+            }
+            if (gradeRepository.findByUuid(gradeUuid.trim()) == null) {
+                throw new IllegalArgumentException("Grade tidak tersedia.");
+            }
+            if (levelRepository.findFirstByGradeUuid(gradeUuid.trim()) == null) {
+                throw new IllegalArgumentException("Grade belum memiliki level. Tambahkan level dulu.");
+            }
+        } else {
+            if (levelUuid == null || levelUuid.trim().isEmpty()) {
+                throw new IllegalArgumentException("Level wajib dipilih.");
+            }
+            if (levelRepository.findByUuid(levelUuid.trim()) == null) {
+                throw new IllegalArgumentException("Level tidak tersedia.");
+            }
         }
 
         if (currentUserUuid == null) {
@@ -149,5 +177,29 @@ public class UserManagementService {
             }
         }
         throw new IllegalArgumentException("Role tidak tersedia.");
+    }
+
+    private Level resolveLevel(Role role, String levelUuid, String gradeUuid) {
+        if (isCoachRole(role)) {
+            Level level = levelRepository.findFirstByGradeUuid(gradeUuid.trim());
+            if (level == null) {
+                throw new IllegalArgumentException("Grade belum memiliki level. Tambahkan level dulu.");
+            }
+            return level;
+        }
+
+        Level level = levelRepository.findByUuid(levelUuid.trim());
+        if (level == null) {
+            throw new IllegalArgumentException("Level tidak tersedia.");
+        }
+        return level;
+    }
+
+    private boolean isCoachRole(Role role) {
+        String name = role == null || role.getName() == null ? "" : role.getName().toLowerCase();
+        return name.contains("coach")
+                || name.contains("pelatih")
+                || name.contains("trainer")
+                || name.contains("instruktur");
     }
 }

@@ -14,7 +14,9 @@ public final class DbConfig {
                 + "?createDatabaseIfNotExist=true"
                 + "&useSSL=false"
                 + "&allowPublicKeyRetrieval=true"
-                + "&serverTimezone=Asia/Bangkok";
+                + "&serverTimezone=Asia/Bangkok"
+                + "&connectTimeout=5000"
+                + "&socketTimeout=15000";
     }
 
     public static String getUsername() {
@@ -22,7 +24,7 @@ public final class DbConfig {
     }
 
     public static String getPassword() {
-        return getValue("DB_PASSWORD", "");
+        return getValue("DB_PASSWORD", "root");
     }
 
     private static String getValue(String key, String defaultValue) {

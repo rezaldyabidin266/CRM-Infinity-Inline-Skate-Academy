@@ -1,6 +1,7 @@
 package com.tugasbesar.app.ui.screen;
 
 import com.tugasbesar.app.model.AppModule;
+import com.tugasbesar.app.model.Grade;
 import com.tugasbesar.app.model.Level;
 import com.tugasbesar.app.model.Role;
 import com.tugasbesar.app.model.User;
@@ -109,8 +110,9 @@ public class MasterDataScreen extends JPanel {
         this.masterDataService = new MasterDataService();
         this.userManagementService = new UserManagementService();
         this.sourceUsers = new ArrayList<>();
+        String categoryColumn = masterType == MasterType.COACH ? "Grade" : "Level";
         this.tableModel = new DefaultTableModel(
-                new String[]{"UUID", "Full Name", "Username", "Email", "Role", "Level", "Status", "Last Login", "Action"},
+                new String[]{"UUID", "Full Name", "Username", "Email", "Role", categoryColumn, "Status", "Last Login", "Action"},
                 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
@@ -121,7 +123,7 @@ public class MasterDataScreen extends JPanel {
         this.statusLabel = new JLabel(" ");
         this.dataInfoLabel = new JLabel("Data ditampilkan: 0");
         this.searchField = new JTextField();
-        this.levelFilter = new JComboBox<>(new String[]{"Semua Level"});
+        this.levelFilter = new JComboBox<>(new String[]{masterType == MasterType.COACH ? "Semua Grade" : "Semua Level"});
         this.statusFilter = new JComboBox<>(new String[]{"Semua Status", "Active", "Inactive"});
 
         setLayout(new BorderLayout(0, 8));
@@ -202,7 +204,7 @@ public class MasterDataScreen extends JPanel {
         filterPanel.setOpaque(false);
         searchField.setPreferredSize(new Dimension(280, 34));
         searchField.setFont(new Font("SansSerif", Font.PLAIN, 13));
-        searchField.setToolTipText("Cari berdasarkan nama, username, email, role, atau level");
+        searchField.setToolTipText("Cari berdasarkan nama, username, email, role, atau kategori class");
         searchField.setText("Cari nama, username, email, role...");
         searchField.addFocusListener(new java.awt.event.FocusAdapter() {
             @Override
@@ -231,7 +233,7 @@ public class MasterDataScreen extends JPanel {
         filterPanel.add(searchField);
         filterPanel.add(searchButton);
         filterPanel.add(clearButton);
-        filterPanel.add(new JLabel("Level"));
+        filterPanel.add(new JLabel(masterType == MasterType.COACH ? "Grade" : "Level"));
         filterPanel.add(levelFilter);
         filterPanel.add(new JLabel("Status"));
         filterPanel.add(statusFilter);
@@ -314,13 +316,13 @@ public class MasterDataScreen extends JPanel {
     private void reloadLevelFilter() {
         List<String> levels = new ArrayList<>();
         for (User user : sourceUsers) {
-            String level = user.getLevelName() == null ? "" : user.getLevelName().trim();
+            String level = getCategoryValue(user);
             if (!level.isEmpty() && !levels.contains(level)) {
                 levels.add(level);
             }
         }
         levelFilter.removeAllItems();
-        levelFilter.addItem("Semua Level");
+        levelFilter.addItem(masterType == MasterType.COACH ? "Semua Grade" : "Semua Level");
         for (String level : levels) {
             levelFilter.addItem(level);
         }
@@ -337,14 +339,15 @@ public class MasterDataScreen extends JPanel {
 
         for (User user : sourceUsers) {
             String role = safe(user.getRole());
-            String level = safe(user.getLevelName());
+            String level = getCategoryValue(user);
             String status = user.isActive() ? "Active" : "Inactive";
             String blob = (safe(user.getFullName()) + " " + safe(user.getUsername()) + " " + safe(user.getEmail()) + " " + role + " " + level).toLowerCase();
 
             if (!search.isEmpty() && !blob.contains(search)) {
                 continue;
             }
-            if (!"Semua Level".equals(selectedLevel) && !selectedLevel.equalsIgnoreCase(level)) {
+            String allCategory = masterType == MasterType.COACH ? "Semua Grade" : "Semua Level";
+            if (!allCategory.equals(selectedLevel) && !selectedLevel.equalsIgnoreCase(level)) {
                 continue;
             }
             if (!"Semua Status".equals(selectedStatus) && !selectedStatus.equalsIgnoreCase(status)) {
@@ -371,6 +374,13 @@ public class MasterDataScreen extends JPanel {
         return value == null ? "" : value.trim();
     }
 
+    private String getCategoryValue(User user) {
+        if (masterType == MasterType.COACH) {
+            return safe(user.getGradeName());
+        }
+        return safe(user.getLevelName());
+    }
+
     private User findUserByUuid(String uuid) {
         for (User user : sourceUsers) {
             if (uuid.equals(user.getUuid())) {
@@ -394,6 +404,7 @@ public class MasterDataScreen extends JPanel {
         JTextField fullNameField = createTextField();
         JTextField usernameField = createTextField();
         JTextField emailField = createTextField();
+        List<Grade> grades = userManagementService.getAllGrades();
         JPasswordField passwordField = new JPasswordField();
         passwordField.setFont(new Font("SansSerif", Font.PLAIN, 14));
         passwordField.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
@@ -406,7 +417,11 @@ public class MasterDataScreen extends JPanel {
         levelCombo.setFont(new Font("SansSerif", Font.PLAIN, 14));
         levelCombo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
         levelCombo.setAlignmentX(Component.LEFT_ALIGNMENT);
-        levelCombo.setEditable(true);
+        JComboBox<Grade> gradeCombo = new JComboBox<>(grades.toArray(new Grade[0]));
+        gradeCombo.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        gradeCombo.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+        gradeCombo.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel categoryLabel = createLabel(masterType == MasterType.COACH ? "Grade" : "Level");
         JCheckBox activeCheck = new JCheckBox("User aktif");
         activeCheck.setOpaque(false);
         activeCheck.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -420,7 +435,11 @@ public class MasterDataScreen extends JPanel {
             emailField.setText(editingUser.getEmail());
             activeCheck.setSelected(editingUser.isActive());
             selectRole(roleCombo, editingUser.getRoleUuid());
-            selectLevel(levelCombo, editingUser.getLevelUuid(), editingUser.getLevelName());
+            if (masterType == MasterType.COACH) {
+                selectGrade(gradeCombo, editingUser.getGradeUuid());
+            } else {
+                selectLevel(levelCombo, editingUser.getLevelUuid(), editingUser.getLevelName());
+            }
             noteLabel.setForeground(new Color(71, 85, 105));
             noteLabel.setText("Kosongkan password jika tidak ingin mengubah password.");
         } else {
@@ -445,8 +464,12 @@ public class MasterDataScreen extends JPanel {
         formPanel.add(createLabel("Role"));
         formPanel.add(roleCombo);
         formPanel.add(Box.createVerticalStrut(10));
-        formPanel.add(createLabel("Level"));
-        formPanel.add(levelCombo);
+        formPanel.add(categoryLabel);
+        if (masterType == MasterType.COACH) {
+            formPanel.add(gradeCombo);
+        } else {
+            formPanel.add(levelCombo);
+        }
         formPanel.add(Box.createVerticalStrut(10));
         formPanel.add(createLabel("Password"));
         formPanel.add(passwordField);
@@ -468,7 +491,8 @@ public class MasterDataScreen extends JPanel {
         saveButton.addActionListener(event -> {
             try {
                 Role role = (Role) roleCombo.getSelectedItem();
-                String levelName = resolveLevelInput(levelCombo);
+                Level selectedLevel = (Level) levelCombo.getSelectedItem();
+                Grade selectedGrade = (Grade) gradeCombo.getSelectedItem();
                 if (editingUser == null) {
                     userManagementService.createUser(
                             fullNameField.getText(),
@@ -476,7 +500,8 @@ public class MasterDataScreen extends JPanel {
                             emailField.getText(),
                             new String(passwordField.getPassword()),
                             role == null ? null : role.getUuid(),
-                            levelName,
+                            selectedLevel == null ? null : selectedLevel.getUuid(),
+                            selectedGrade == null ? null : selectedGrade.getUuid(),
                             activeCheck.isSelected());
                 } else {
                     userManagementService.updateUser(
@@ -486,7 +511,8 @@ public class MasterDataScreen extends JPanel {
                             emailField.getText(),
                             new String(passwordField.getPassword()),
                             role == null ? null : role.getUuid(),
-                            levelName,
+                            selectedLevel == null ? null : selectedLevel.getUuid(),
+                            selectedGrade == null ? null : selectedGrade.getUuid(),
                             activeCheck.isSelected());
                     if (currentUser != null && currentUser.getUuid().equals(editingUser.getUuid()) && sessionRefreshAction != null) {
                         sessionRefreshAction.run();
@@ -574,27 +600,16 @@ public class MasterDataScreen extends JPanel {
                 return;
             }
         }
-        if (levelName != null && !levelName.trim().isEmpty()) {
-            comboBox.getEditor().setItem(levelName.trim());
-        }
     }
 
-    private String resolveLevelInput(JComboBox<Level> comboBox) {
-        Object editorValue = comboBox.isEditable() ? comboBox.getEditor().getItem() : comboBox.getSelectedItem();
-        if (editorValue instanceof Level) {
-            return ((Level) editorValue).getName();
-        }
-        if (editorValue != null) {
-            String text = editorValue.toString().trim();
-            if (!text.isEmpty()) {
-                return text;
+    private void selectGrade(JComboBox<Grade> comboBox, String gradeUuid) {
+        for (int index = 0; index < comboBox.getItemCount(); index++) {
+            Grade grade = comboBox.getItemAt(index);
+            if (grade != null && grade.getUuid().equals(gradeUuid)) {
+                comboBox.setSelectedIndex(index);
+                return;
             }
         }
-        Object selectedValue = comboBox.getSelectedItem();
-        if (selectedValue instanceof Level) {
-            return ((Level) selectedValue).getName();
-        }
-        return selectedValue == null ? "" : selectedValue.toString().trim();
     }
 
     private int showDeleteConfirm(String message) {
@@ -932,7 +947,8 @@ public class MasterDataScreen extends JPanel {
                             parts[2].trim(),
                             password,
                             role.getUuid(),
-                            parts[4].trim(),
+                            resolveImportedLevelUuid(parts[4].trim()),
+                            resolveImportedGradeUuid(parts[4].trim()),
                             active);
                     success++;
                 } catch (Exception exception) {
@@ -1025,7 +1041,8 @@ public class MasterDataScreen extends JPanel {
                             parts[2].trim(),
                             "123456",
                             role.getUuid(),
-                            parts.length > 4 ? parts[4].trim() : "Basic",
+                            resolveImportedLevelUuid(parts.length > 4 ? parts[4].trim() : "Basic"),
+                            resolveImportedGradeUuid(parts.length > 4 ? parts[4].trim() : "Grade 1"),
                             active);
                     success++;
                 } catch (Exception exception) {
@@ -1056,6 +1073,38 @@ public class MasterDataScreen extends JPanel {
         }
         sb.append("</sheetData></worksheet>");
         return sb.toString();
+    }
+
+    private String resolveImportedLevelUuid(String rawValue) {
+        if (masterType == MasterType.COACH) {
+            return null;
+        }
+        String name = rawValue == null ? "" : rawValue.trim();
+        if (name.isEmpty()) {
+            return null;
+        }
+        for (Level level : userManagementService.getAllLevels()) {
+            if (level != null && name.equalsIgnoreCase(level.getName())) {
+                return level.getUuid();
+            }
+        }
+        return null;
+    }
+
+    private String resolveImportedGradeUuid(String rawValue) {
+        if (masterType != MasterType.COACH) {
+            return null;
+        }
+        String name = rawValue == null ? "" : rawValue.trim();
+        if (name.isEmpty()) {
+            return null;
+        }
+        for (Grade grade : userManagementService.getAllGrades()) {
+            if (grade != null && name.equalsIgnoreCase(grade.getName())) {
+                return grade.getUuid();
+            }
+        }
+        return null;
     }
 
     private List<String[]> readSheetRows(File file) throws Exception {

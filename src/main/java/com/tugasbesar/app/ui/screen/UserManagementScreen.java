@@ -1,6 +1,7 @@
 package com.tugasbesar.app.ui.screen;
 
 import com.tugasbesar.app.model.AppModule;
+import com.tugasbesar.app.model.Grade;
 import com.tugasbesar.app.model.Level;
 import com.tugasbesar.app.model.Role;
 import com.tugasbesar.app.model.User;
@@ -177,7 +178,7 @@ public class UserManagementScreen extends JPanel {
     }
 
     private DefaultTableModel createTableModel() {
-        return new DefaultTableModel(new String[]{"UUID", "Full Name", "Username", "Email", "Role", "Level", "Status", "Last Login", "Action"}, 0) {
+        return new DefaultTableModel(new String[]{"UUID", "Full Name", "Username", "Email", "Role", "Grade", "Level", "Status", "Last Login", "Action"}, 0) {
             @Override
             public boolean isCellEditable(int row, int column) {
                 return false;
@@ -198,14 +199,14 @@ public class UserManagementScreen extends JPanel {
         userTable.getColumnModel().getColumn(0).setMinWidth(0);
         userTable.getColumnModel().getColumn(0).setMaxWidth(0);
         userTable.getColumnModel().getColumn(0).setWidth(0);
-        userTable.getColumnModel().getColumn(8).setPreferredWidth(170);
-        userTable.getColumnModel().getColumn(8).setCellRenderer(new ActionCellRenderer());
+        userTable.getColumnModel().getColumn(9).setPreferredWidth(170);
+        userTable.getColumnModel().getColumn(9).setCellRenderer(new ActionCellRenderer());
         userTable.addMouseListener(new MouseAdapter() {
             @Override
             public void mouseClicked(MouseEvent event) {
                 int viewRow = userTable.rowAtPoint(event.getPoint());
                 int viewColumn = userTable.columnAtPoint(event.getPoint());
-                if (viewRow < 0 || viewColumn != 8) {
+                if (viewRow < 0 || viewColumn != 9) {
                     return;
                 }
                 int row = userTable.convertRowIndexToModel(viewRow);
@@ -251,6 +252,7 @@ public class UserManagementScreen extends JPanel {
                     user.getUsername(),
                     user.getEmail(),
                     user.getRole(),
+                    user.getGradeName() == null || user.getGradeName().trim().isEmpty() ? "-" : user.getGradeName(),
                     user.getLevelName() == null || user.getLevelName().trim().isEmpty() ? "-" : user.getLevelName(),
                     user.isActive() ? "Active" : "Inactive",
                     lastLogin,
@@ -274,7 +276,7 @@ public class UserManagementScreen extends JPanel {
         rowSorter.setRowFilter(new javax.swing.RowFilter<DefaultTableModel, Integer>() {
             @Override
             public boolean include(Entry<? extends DefaultTableModel, ? extends Integer> entry) {
-                for (int col = 1; col <= 7; col++) {
+                for (int col = 1; col <= 8; col++) {
                     Object value = entry.getValue(col);
                     if (value != null && value.toString().toLowerCase().contains(keyword)) {
                         return true;
@@ -301,6 +303,7 @@ public class UserManagementScreen extends JPanel {
 
         List<Role> roles = userManagementService.getAllRoles();
         List<Level> levels = userManagementService.getAllLevels();
+        List<Grade> grades = userManagementService.getAllGrades();
         JTextField fullNameField = createTextField();
         JTextField usernameField = createTextField();
         JTextField emailField = createTextField();
@@ -316,7 +319,12 @@ public class UserManagementScreen extends JPanel {
         levelComboBox.setFont(new Font("SansSerif", Font.PLAIN, 14));
         levelComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
         levelComboBox.setAlignmentX(Component.LEFT_ALIGNMENT);
-        levelComboBox.setEditable(true);
+        JComboBox<Grade> gradeComboBox = new JComboBox<>(grades.toArray(new Grade[0]));
+        gradeComboBox.setFont(new Font("SansSerif", Font.PLAIN, 14));
+        gradeComboBox.setMaximumSize(new Dimension(Integer.MAX_VALUE, 42));
+        gradeComboBox.setAlignmentX(Component.LEFT_ALIGNMENT);
+        JLabel gradeLabel = createLabel("Grade");
+        JLabel levelLabel = createLabel("Level");
         JCheckBox activeCheckBox = new JCheckBox("User aktif");
         activeCheckBox.setOpaque(false);
         activeCheckBox.setAlignmentX(Component.LEFT_ALIGNMENT);
@@ -330,6 +338,7 @@ public class UserManagementScreen extends JPanel {
             emailField.setText(editingUser.getEmail());
             activeCheckBox.setSelected(editingUser.isActive());
             selectRole(roleComboBox, editingUser.getRoleUuid());
+            selectGrade(gradeComboBox, editingUser.getGradeUuid());
             selectLevel(levelComboBox, editingUser.getLevelUuid(), editingUser.getLevelName());
             if (editingUser.isSuperAdmin()) {
                 fullNameField.setEnabled(false);
@@ -337,6 +346,7 @@ public class UserManagementScreen extends JPanel {
                 emailField.setEnabled(false);
                 passwordField.setEnabled(false);
                 roleComboBox.setEnabled(false);
+                gradeComboBox.setEnabled(false);
                 levelComboBox.setEnabled(false);
                 activeCheckBox.setEnabled(false);
                 noteLabel.setForeground(new Color(180, 83, 9));
@@ -368,7 +378,10 @@ public class UserManagementScreen extends JPanel {
         formPanel.add(createLabel("Role"));
         formPanel.add(roleComboBox);
         formPanel.add(Box.createVerticalStrut(10));
-        formPanel.add(createLabel("Level"));
+        formPanel.add(gradeLabel);
+        formPanel.add(gradeComboBox);
+        formPanel.add(Box.createVerticalStrut(10));
+        formPanel.add(levelLabel);
         formPanel.add(levelComboBox);
         formPanel.add(Box.createVerticalStrut(10));
         formPanel.add(createLabel("Password"));
@@ -390,10 +403,13 @@ public class UserManagementScreen extends JPanel {
         );
 
         cancelButton.addActionListener(event -> dialog.dispose());
+        roleComboBox.addActionListener(event -> updateSelectionMode(roleComboBox, gradeLabel, gradeComboBox, levelLabel, levelComboBox));
+        updateSelectionMode(roleComboBox, gradeLabel, gradeComboBox, levelLabel, levelComboBox);
         saveButton.addActionListener(event -> {
             try {
                 Role selectedRole = (Role) roleComboBox.getSelectedItem();
-                String levelName = resolveLevelInput(levelComboBox);
+                Level selectedLevel = (Level) levelComboBox.getSelectedItem();
+                Grade selectedGrade = (Grade) gradeComboBox.getSelectedItem();
                 if (editingUser == null) {
                     userManagementService.createUser(
                             fullNameField.getText(),
@@ -401,7 +417,8 @@ public class UserManagementScreen extends JPanel {
                             emailField.getText(),
                             new String(passwordField.getPassword()),
                             selectedRole == null ? null : selectedRole.getUuid(),
-                            levelName,
+                            selectedLevel == null ? null : selectedLevel.getUuid(),
+                            selectedGrade == null ? null : selectedGrade.getUuid(),
                             activeCheckBox.isSelected()
                     );
                 } else {
@@ -412,7 +429,8 @@ public class UserManagementScreen extends JPanel {
                             emailField.getText(),
                             new String(passwordField.getPassword()),
                             selectedRole == null ? null : selectedRole.getUuid(),
-                            levelName,
+                            selectedLevel == null ? null : selectedLevel.getUuid(),
+                            selectedGrade == null ? null : selectedGrade.getUuid(),
                             activeCheckBox.isSelected()
                     );
                     if (currentUser != null && editingUser.getUuid().equals(currentUser.getUuid()) && sessionRefreshAction != null) {
@@ -476,35 +494,33 @@ public class UserManagementScreen extends JPanel {
             }
         }
 
-        if (levelName != null && !levelName.trim().isEmpty()) {
-            comboBox.getEditor().setItem(levelName.trim());
+    }
+
+    private void selectGrade(JComboBox<Grade> comboBox, String gradeUuid) {
+        for (int index = 0; index < comboBox.getItemCount(); index++) {
+            Grade grade = comboBox.getItemAt(index);
+            if (grade != null && grade.getUuid().equals(gradeUuid)) {
+                comboBox.setSelectedIndex(index);
+                return;
+            }
         }
     }
 
-    private String resolveLevelInput(JComboBox<Level> comboBox) {
-        Object editorValue = comboBox.isEditable() ? comboBox.getEditor().getItem() : comboBox.getSelectedItem();
-        if (editorValue instanceof Level) {
-            return ((Level) editorValue).getName();
-        }
+    private void updateSelectionMode(JComboBox<Role> roleComboBox, JLabel gradeLabel, JComboBox<Grade> gradeComboBox, JLabel levelLabel, JComboBox<Level> levelComboBox) {
+        Role selectedRole = (Role) roleComboBox.getSelectedItem();
+        boolean coachRole = isCoachRole(selectedRole);
+        gradeLabel.setVisible(coachRole);
+        gradeComboBox.setVisible(coachRole);
+        levelLabel.setVisible(!coachRole);
+        levelComboBox.setVisible(!coachRole);
+    }
 
-        if (editorValue != null) {
-            String text = editorValue.toString().trim();
-            if (!text.isEmpty()) {
-                return text;
-            }
-        }
-
-        Object selectedValue = comboBox.getSelectedItem();
-        if (selectedValue instanceof Level) {
-            return ((Level) selectedValue).getName();
-        }
-        if (selectedValue != null) {
-            String text = selectedValue.toString().trim();
-            if (!text.isEmpty()) {
-                return text;
-            }
-        }
-        return "";
+    private boolean isCoachRole(Role role) {
+        String name = role == null || role.getName() == null ? "" : role.getName().toLowerCase();
+        return name.contains("coach")
+                || name.contains("pelatih")
+                || name.contains("trainer")
+                || name.contains("instruktur");
     }
 
     private JTextField createTextField() {

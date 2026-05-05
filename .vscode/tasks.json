@@ -4,19 +4,28 @@
         {
             "label": "Build Java App",
             "type": "shell",
-            "command": "powershell",
+            "command": "cmd",
             "args": [
-                "-NoProfile",
-                "-ExecutionPolicy",
-                "Bypass",
-                "-Command",
-                "$sources = Get-ChildItem -Recurse 'src\\main\\java' -Filter *.java | ForEach-Object { $_.FullName }; if (!(Test-Path 'bin')) { New-Item -ItemType Directory -Path 'bin' | Out-Null }; javac -cp 'lib/*' -d bin $sources"
+                "/c",
+                "build.bat"
             ],
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
             "problemMatcher": "$javac",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            }
+        },
+        {
+            "label": "Run Java App",
+            "type": "shell",
+            "command": "cmd",
+            "args": [
+                "/c",
+                "run.bat"
+            ],
             "options": {
                 "cwd": "${workspaceFolder}"
             }

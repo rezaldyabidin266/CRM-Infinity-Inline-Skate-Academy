@@ -1,7 +1,7 @@
 ALTER TABLE attendance_forms
-    ADD COLUMN IF NOT EXISTS level_uuid CHAR(36) NULL AFTER coach_uuid,
-    ADD COLUMN IF NOT EXISTS attendance_date DATE NULL AFTER level_uuid,
-    ADD COLUMN IF NOT EXISTS pertemuan_ke TINYINT NULL AFTER attendance_date;
+    ADD COLUMN level_uuid CHAR(36) NULL AFTER coach_uuid,
+    ADD COLUMN attendance_date DATE NULL AFTER level_uuid,
+    ADD COLUMN pertemuan_ke TINYINT NULL AFTER attendance_date;
 
 UPDATE attendance_forms af
 LEFT JOIN attendance_form_levels afl ON afl.attendance_form_uuid = af.uuid
@@ -17,10 +17,59 @@ SET pertemuan_ke = COALESCE(pertemuan_ke, 1)
 WHERE pertemuan_ke IS NULL;
 
 ALTER TABLE attendance_forms
-    ADD CONSTRAINT fk_attendance_forms_level_uuid FOREIGN KEY (level_uuid) REFERENCES levels(uuid) ON DELETE CASCADE;
+    MODIFY COLUMN level_uuid CHAR(36) COLLATE utf8mb4_general_ci NULL;
 
-CREATE UNIQUE INDEX idx_attendance_forms_slot ON attendance_forms(coach_uuid, level_uuid, attendance_date, pertemuan_ke);
-CREATE INDEX idx_attendance_forms_level_date ON attendance_forms(level_uuid, attendance_date, pertemuan_ke);
+SET @fk_attendance_forms_level_uuid_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.table_constraints
+    WHERE table_schema = DATABASE()
+      AND table_name = 'attendance_forms'
+      AND constraint_name = 'fk_attendance_forms_level_uuid'
+      AND constraint_type = 'FOREIGN KEY'
+);
+
+SET @sql = IF(
+    @fk_attendance_forms_level_uuid_exists = 0,
+    'ALTER TABLE attendance_forms ADD CONSTRAINT fk_attendance_forms_level_uuid FOREIGN KEY (level_uuid) REFERENCES levels(uuid) ON DELETE CASCADE',
+    'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @idx_attendance_forms_slot_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = 'attendance_forms'
+      AND index_name = 'idx_attendance_forms_slot'
+);
+
+SET @sql = IF(
+    @idx_attendance_forms_slot_exists = 0,
+    'CREATE UNIQUE INDEX idx_attendance_forms_slot ON attendance_forms(coach_uuid, level_uuid, attendance_date, pertemuan_ke)',
+    'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
+SET @idx_attendance_forms_level_date_exists = (
+    SELECT COUNT(*)
+    FROM information_schema.statistics
+    WHERE table_schema = DATABASE()
+      AND table_name = 'attendance_forms'
+      AND index_name = 'idx_attendance_forms_level_date'
+);
+
+SET @sql = IF(
+    @idx_attendance_forms_level_date_exists = 0,
+    'CREATE INDEX idx_attendance_forms_level_date ON attendance_forms(level_uuid, attendance_date, pertemuan_ke)',
+    'SELECT 1'
+);
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
 
 INSERT INTO modules (uuid, code, name, description, sort_order)
 SELECT UUID(), UUID(), 'Master Murid', 'Master data murid.', 11
