@@ -1,6 +1,7 @@
 package com.tugasbesar.app.service;
 
 import com.tugasbesar.app.model.CoachPaymentSummary;
+import com.tugasbesar.app.model.CoachSalaryPaymentRecord;
 import com.tugasbesar.app.model.GradeCoachPaymentRate;
 import com.tugasbesar.app.model.Level;
 import com.tugasbesar.app.model.LevelPaymentConfig;
@@ -68,6 +69,24 @@ public class PaymentManagementService {
             throw new IllegalArgumentException("Data pembayaran murid tidak valid.");
         }
         paymentRepository.updateStudentPayment(paymentUuid.trim(), paid, notes);
+    }
+
+    public List<CoachSalaryPaymentRecord> getCoachSalaryPayments(int year, int month, String gradeName, String statusFilter) {
+        paymentRepository.syncCoachSalaryPaymentsForPeriod(year, month);
+        Boolean paidFilter = null;
+        if ("Sudah Bayar".equalsIgnoreCase(statusFilter)) {
+            paidFilter = Boolean.TRUE;
+        } else if ("Belum Bayar".equalsIgnoreCase(statusFilter)) {
+            paidFilter = Boolean.FALSE;
+        }
+        return paymentRepository.findCoachSalaryPayments(year, month, gradeName, paidFilter);
+    }
+
+    public void updateCoachSalaryPaymentStatus(String paymentUuid, boolean paid, String notes) {
+        if (paymentUuid == null || paymentUuid.trim().isEmpty()) {
+            throw new IllegalArgumentException("Data pembayaran gaji coach tidak valid.");
+        }
+        paymentRepository.updateCoachSalaryPayment(paymentUuid.trim(), paid, notes);
     }
 
     private BigDecimal parseAmount(String raw, String message) {

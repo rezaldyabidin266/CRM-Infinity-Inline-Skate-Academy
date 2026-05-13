@@ -7,6 +7,13 @@ import com.tugasbesar.app.model.Level;
 import com.tugasbesar.app.model.User;
 import com.tugasbesar.app.service.AttendanceFormManagementService;
 import com.tugasbesar.app.ui.component.RoundedButton;
+import net.sf.jasperreports.engine.JRException;
+import net.sf.jasperreports.engine.JasperCompileManager;
+import net.sf.jasperreports.engine.JasperExportManager;
+import net.sf.jasperreports.engine.JasperFillManager;
+import net.sf.jasperreports.engine.JasperPrint;
+import net.sf.jasperreports.engine.JasperReport;
+import net.sf.jasperreports.engine.data.JRBeanCollectionDataSource;
 
 import javax.swing.BorderFactory;
 import javax.swing.Box;
@@ -14,6 +21,7 @@ import javax.swing.BoxLayout;
 import javax.swing.JButton;
 import javax.swing.JComboBox;
 import javax.swing.JDialog;
+import javax.swing.JFileChooser;
 import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
@@ -24,6 +32,7 @@ import javax.swing.JTextField;
 import javax.swing.ListSelectionModel;
 import javax.swing.SwingConstants;
 import javax.swing.UIManager;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.plaf.basic.BasicButtonUI;
 import javax.swing.table.DefaultTableModel;
 import java.awt.BorderLayout;
@@ -40,18 +49,40 @@ import java.awt.GridBagLayout;
 import java.awt.Insets;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.ByteArrayInputStream;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.FileReader;
+import java.io.FileWriter;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
+import java.util.zip.ZipOutputStream;
+import javax.xml.parsers.DocumentBuilderFactory;
+import org.w3c.dom.Document;
+import org.w3c.dom.Element;
+import org.w3c.dom.NodeList;
 
 public class MasterAttendanceScreen extends JPanel {
     private static final String ADD_ICON = "\u271A";
     private static final String REFRESH_ICON = "\u21BB";
+    private static final String EXPORT_ICON = "\u21E9";
+    private static final String PDF_ICON = "\uD83D\uDCC4";
+    private static final String IMPORT_ICON = "\u21E7";
     private static final String SEARCH_ICON = "\u2315";
     private static final String CLEAR_ICON = "\u2715";
     private static final String VIEW_ICON = "\uD83D\uDD0D";
     private static final String EDIT_ICON = "\u270E";
     private static final String DELETE_ICON = "\u2716";
+    private static final String PRINT_ICON = "\uD83D\uDDB6";
 
     private final User currentUser;
     private final AppModule modulePermission;
@@ -112,12 +143,27 @@ public class MasterAttendanceScreen extends JPanel {
         actionPanel.setOpaque(false);
         RoundedButton addButton = createActionButton(ADD_ICON + " Buat Form", new Color(14, 116, 144), 154);
         RoundedButton refreshButton = createActionButton(REFRESH_ICON + " Refresh", new Color(71, 85, 105), 142);
+        RoundedButton exportButton = createActionButton(EXPORT_ICON + " Export Excel", new Color(22, 163, 74), 176);
+        RoundedButton pdfButton = createActionButton(PDF_ICON + " Export PDF", new Color(220, 38, 38), 164);
+        RoundedButton importButton = createActionButton(IMPORT_ICON + " Import", new Color(22, 163, 74), 154);
         addButton.setEnabled(canCreate());
         addButton.addActionListener(event -> openFormDialog(null));
         refreshButton.addActionListener(event -> loadData());
+        exportButton.setEnabled(canExport());
+        exportButton.addActionListener(event -> exportData());
+        pdfButton.setEnabled(canExport());
+        pdfButton.addActionListener(event -> exportPdf());
+        importButton.setEnabled(canImport());
+        importButton.addActionListener(event -> importData());
         actionPanel.add(addButton);
         actionPanel.add(Box.createHorizontalStrut(8));
         actionPanel.add(refreshButton);
+        actionPanel.add(Box.createHorizontalStrut(8));
+        actionPanel.add(exportButton);
+        actionPanel.add(Box.createHorizontalStrut(8));
+        actionPanel.add(pdfButton);
+        actionPanel.add(Box.createHorizontalStrut(8));
+        actionPanel.add(importButton);
 
         JPanel filterPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         filterPanel.setOpaque(false);
@@ -188,7 +234,7 @@ public class MasterAttendanceScreen extends JPanel {
         formTable.getColumnModel().getColumn(0).setMinWidth(0);
         formTable.getColumnModel().getColumn(0).setMaxWidth(0);
         formTable.getColumnModel().getColumn(0).setWidth(0);
-        formTable.getColumnModel().getColumn(6).setPreferredWidth(250);
+        formTable.getColumnModel().getColumn(6).setPreferredWidth(330);
         formTable.getColumnModel().getColumn(6).setCellRenderer((table, value, isSelected, hasFocus, row, column) -> {
             JPanel panel = new JPanel(new FlowLayout(FlowLayout.CENTER, 6, 4));
             panel.setOpaque(true);
@@ -196,6 +242,7 @@ public class MasterAttendanceScreen extends JPanel {
             panel.add(createActionBadge(VIEW_ICON + " Cek", new Color(30, 64, 175)));
             panel.add(createActionBadge(EDIT_ICON + " Edit", new Color(14, 116, 144)));
             panel.add(createActionBadge(DELETE_ICON + " Delete", new Color(220, 38, 38)));
+            panel.add(createActionBadge(PRINT_ICON + " Cetak", new Color(249, 115, 22)));
             return panel;
         });
 
@@ -228,6 +275,8 @@ public class MasterAttendanceScreen extends JPanel {
                         return;
                     }
                     deleteForm(selected);
+                } else if (action == 3) {
+                    exportChecklistPdf(selected);
                 }
             }
         });
@@ -247,19 +296,22 @@ public class MasterAttendanceScreen extends JPanel {
             for (int index = 0; index < panel.getComponentCount(); index++) {
                 Component child = panel.getComponent(index);
                 if (child.getBounds().contains(relativeX, relativeY)) {
-                    return index; // 0=cek, 1=edit, 2=delete
+                    return index;
                 }
             }
         }
 
-        int section = rect.width / 3;
+        int section = rect.width / 4;
         if (relativeX < section) {
             return 0;
         }
         if (relativeX < section * 2) {
             return 1;
         }
-        return 2;
+        if (relativeX < section * 3) {
+            return 2;
+        }
+        return 3;
     }
 
     private JLabel createActionBadge(String text, Color color) {
@@ -357,7 +409,6 @@ public class MasterAttendanceScreen extends JPanel {
                 });
             }
             dataInfoLabel.setText("Data ditampilkan: " + sourceItems.size());
-            setStatusNeutral(" ");
         } catch (Exception exception) {
             setStatusError(exception.getMessage());
         }
@@ -463,6 +514,7 @@ public class MasterAttendanceScreen extends JPanel {
                             pertemuan,
                             active,
                             notesArea.getText());
+                    loadData();
                     setStatusSuccess("Form absensi berhasil dibuat.");
                 } else {
                     attendanceFormManagementService.updateForm(
@@ -473,11 +525,11 @@ public class MasterAttendanceScreen extends JPanel {
                             pertemuan,
                             active,
                             notesArea.getText());
+                    loadData();
                     setStatusSuccess("Form absensi berhasil diperbarui.");
                 }
 
                 dialog.dispose();
-                loadData();
             } catch (Exception exception) {
                 JOptionPane.showMessageDialog(dialog, exception.getMessage(), "Validasi Form Absensi", JOptionPane.WARNING_MESSAGE);
             }
@@ -576,8 +628,8 @@ public class MasterAttendanceScreen extends JPanel {
         }
         try {
             attendanceFormManagementService.deleteForm(form);
-            setStatusSuccess("Form absensi berhasil dihapus.");
             loadData();
+            setStatusSuccess("Form absensi berhasil dihapus.");
         } catch (Exception exception) {
             setStatusError(exception.getMessage());
         }
@@ -634,8 +686,590 @@ public class MasterAttendanceScreen extends JPanel {
         dialog.setVisible(true);
     }
 
+    private void exportChecklistPdf(AttendanceForm selected) {
+        List<AttendanceChecklistItem> rows;
+        try {
+            rows = attendanceFormManagementService.getChecklistByFormUuid(selected.getUuid());
+        } catch (Exception exception) {
+            setStatusError(exception.getMessage());
+            return;
+        }
+
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Cetak Checklist Absensi (PDF)");
+        chooser.setAcceptAllFileFilterUsed(false);
+        chooser.setFileFilter(new FileNameExtensionFilter("PDF File (*.pdf)", "pdf"));
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        File file = chooser.getSelectedFile();
+        if (file == null) {
+            setStatusError("Lokasi file cetak tidak valid.");
+            return;
+        }
+        if (!file.getName().toLowerCase().endsWith(".pdf")) {
+            file = appendExtension(file, "pdf");
+        }
+        try {
+            exportChecklistJasperPdf(file, selected, rows);
+            setStatusSuccess("Checklist absensi berhasil dicetak.");
+        } catch (Exception exception) {
+            setStatusError("Gagal cetak checklist absensi: " + rootErrorMessage(exception));
+        }
+    }
+
+    private void exportChecklistJasperPdf(File file, AttendanceForm form, List<AttendanceChecklistItem> rows) throws JRException {
+        List<AttendanceChecklistExportRow> exportRows = new ArrayList<>();
+        for (AttendanceChecklistItem row : rows) {
+            exportRows.add(new AttendanceChecklistExportRow(
+                    row.getAttendanceDate() == null ? "-" : row.getAttendanceDate().toString(),
+                    String.valueOf(row.getPertemuanKe()),
+                    safeText(row.getCoachName()),
+                    safeText(row.getMuridName()),
+                    safeText(row.getLevelName()),
+                    safeText(row.getStatus()),
+                    safeText(row.getNotes())
+            ));
+        }
+
+        String title = "Checklist Absensi - " + safeText(form.getCoachName()) + " - " + (form.getAttendanceDate() == null ? "-" : form.getAttendanceDate().toString());
+        String jrxml = buildChecklistJasperTemplate(title);
+        InputStream templateStream = new ByteArrayInputStream(jrxml.getBytes(StandardCharsets.UTF_8));
+        JasperReport jasperReport = JasperCompileManager.compileReport(templateStream);
+        JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, new HashMap<String, Object>(), new JRBeanCollectionDataSource(exportRows));
+        JasperExportManager.exportReportToPdfFile(jasperPrint, file.getAbsolutePath());
+    }
+
+    private String buildChecklistJasperTemplate(String title) {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<jasperReport xmlns=\"http://jasperreports.sourceforge.net/jasperreports\" "
+                + "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
+                + "xsi:schemaLocation=\"http://jasperreports.sourceforge.net/jasperreports "
+                + "http://jasperreports.sourceforge.net/xsd/jasperreport.xsd\" "
+                + "name=\"attendance_checklist_report\" pageWidth=\"842\" pageHeight=\"595\" orientation=\"Landscape\" "
+                + "columnWidth=\"802\" leftMargin=\"20\" rightMargin=\"20\" topMargin=\"20\" bottomMargin=\"20\">"
+                + "<field name=\"attendanceDate\" class=\"java.lang.String\"/>"
+                + "<field name=\"meeting\" class=\"java.lang.String\"/>"
+                + "<field name=\"coachName\" class=\"java.lang.String\"/>"
+                + "<field name=\"muridName\" class=\"java.lang.String\"/>"
+                + "<field name=\"levelName\" class=\"java.lang.String\"/>"
+                + "<field name=\"status\" class=\"java.lang.String\"/>"
+                + "<field name=\"notes\" class=\"java.lang.String\"/>"
+                + "<title><band height=\"40\">"
+                + "<staticText><reportElement x=\"0\" y=\"0\" width=\"802\" height=\"30\"/>"
+                + "<textElement><font size=\"14\" isBold=\"true\"/></textElement>"
+                + "<text><![CDATA[" + escapeXml(title) + "]]></text></staticText>"
+                + "</band></title>"
+                + "<columnHeader><band height=\"22\">"
+                + buildHeaderText(0, 110, "Tanggal")
+                + buildHeaderText(110, 90, "Pertemuan")
+                + buildHeaderText(200, 130, "Coach")
+                + buildHeaderText(330, 150, "Murid")
+                + buildHeaderText(480, 110, "Class")
+                + buildHeaderText(590, 90, "Status")
+                + buildHeaderText(680, 122, "Catatan")
+                + "</band></columnHeader>"
+                + "<detail><band height=\"20\">"
+                + buildDetailTextField(0, 110, "attendanceDate")
+                + buildDetailTextField(110, 90, "meeting")
+                + buildDetailTextField(200, 130, "coachName")
+                + buildDetailTextField(330, 150, "muridName")
+                + buildDetailTextField(480, 110, "levelName")
+                + buildDetailTextField(590, 90, "status")
+                + buildDetailTextField(680, 122, "notes")
+                + "</band></detail>"
+                + "</jasperReport>";
+    }
+
+    private void exportData() {
+        if (!canExport()) {
+            setStatusError("Anda tidak punya izin export master absensi.");
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Export Master Absensi (Excel)");
+        chooser.setAcceptAllFileFilterUsed(false);
+        chooser.setFileFilter(new FileNameExtensionFilter("Excel Workbook (*.xlsx)", "xlsx"));
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        File file = normalizeChosenFile(chooser, true);
+        if (file == null) {
+            setStatusError("Lokasi file export tidak valid.");
+            return;
+        }
+        try {
+            if (!file.getName().toLowerCase().endsWith(".xlsx")) {
+                file = appendExtension(file, "xlsx");
+            }
+            exportXlsx(file);
+            setStatusSuccess("Export master absensi berhasil.");
+        } catch (Exception exception) {
+            setStatusError("Gagal export master absensi: " + exception.getMessage());
+        }
+    }
+
+    private void exportPdf() {
+        if (!canExport()) {
+            setStatusError("Anda tidak punya izin export master absensi.");
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Export Master Absensi (PDF)");
+        chooser.setAcceptAllFileFilterUsed(false);
+        chooser.setFileFilter(new FileNameExtensionFilter("PDF File (*.pdf)", "pdf"));
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        File file = chooser.getSelectedFile();
+        if (file == null) {
+            setStatusError("Lokasi file export tidak valid.");
+            return;
+        }
+        if (!file.getName().toLowerCase().endsWith(".pdf")) {
+            file = appendExtension(file, "pdf");
+        }
+        try {
+            exportJasperPdf(file);
+            setStatusSuccess("Export PDF master absensi berhasil.");
+        } catch (NoClassDefFoundError error) {
+            setStatusError("Library Jasper belum lengkap: " + error.getMessage());
+        } catch (Exception exception) {
+            setStatusError("Gagal export PDF master absensi: " + rootErrorMessage(exception));
+        }
+    }
+
+    private void importData() {
+        if (!canImport()) {
+            setStatusError("Anda tidak punya izin import master absensi.");
+            return;
+        }
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Import Master Absensi");
+        chooser.setAcceptAllFileFilterUsed(false);
+        chooser.addChoosableFileFilter(new FileNameExtensionFilter("Excel Workbook (*.xlsx)", "xlsx"));
+        chooser.addChoosableFileFilter(new FileNameExtensionFilter("CSV File (*.csv)", "csv"));
+        chooser.setFileFilter(new FileNameExtensionFilter("Excel Workbook (*.xlsx)", "xlsx"));
+        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+        File file = normalizeChosenFile(chooser, false);
+        if (file == null || !file.exists()) {
+            setStatusError("File import tidak ditemukan.");
+            return;
+        }
+        String lowerName = file.getName().toLowerCase();
+        if (lowerName.endsWith(".xlsx")) {
+            importXlsx(file);
+        } else if (lowerName.endsWith(".csv")) {
+            importCsv(file);
+        } else {
+            setStatusError("Format file tidak didukung. Gunakan CSV atau XLSX.");
+        }
+    }
+
+    private void exportJasperPdf(File file) throws JRException {
+        List<AttendanceExportRow> rows = new ArrayList<>();
+        for (AttendanceForm form : sourceItems) {
+            rows.add(new AttendanceExportRow(
+                    safeText(form.getCoachName()),
+                    form.getAttendanceDate() == null ? "-" : form.getAttendanceDate().toString(),
+                    String.valueOf(form.getPertemuanKe()),
+                    safeText(form.getLevelName()),
+                    form.isActive() ? "Aktif" : "Nonaktif",
+                    safeText(form.getNotes())
+            ));
+        }
+
+        String jrxml = buildAttendanceJasperTemplate();
+        InputStream templateStream = new ByteArrayInputStream(jrxml.getBytes(StandardCharsets.UTF_8));
+        JasperReport jasperReport = JasperCompileManager.compileReport(templateStream);
+        JRBeanCollectionDataSource dataSource = new JRBeanCollectionDataSource(rows);
+        JasperPrint jasperPrint = JasperFillManager.fillReport(jasperReport, new HashMap<String, Object>(), dataSource);
+        JasperExportManager.exportReportToPdfFile(jasperPrint, file.getAbsolutePath());
+    }
+
+    private String buildAttendanceJasperTemplate() {
+        return "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                + "<jasperReport xmlns=\"http://jasperreports.sourceforge.net/jasperreports\" "
+                + "xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\" "
+                + "xsi:schemaLocation=\"http://jasperreports.sourceforge.net/jasperreports "
+                + "http://jasperreports.sourceforge.net/xsd/jasperreport.xsd\" "
+                + "name=\"master_attendance_report\" pageWidth=\"842\" pageHeight=\"595\" orientation=\"Landscape\" "
+                + "columnWidth=\"802\" leftMargin=\"20\" rightMargin=\"20\" topMargin=\"20\" bottomMargin=\"20\">"
+                + "<field name=\"coachName\" class=\"java.lang.String\"/>"
+                + "<field name=\"attendanceDate\" class=\"java.lang.String\"/>"
+                + "<field name=\"meeting\" class=\"java.lang.String\"/>"
+                + "<field name=\"levelName\" class=\"java.lang.String\"/>"
+                + "<field name=\"status\" class=\"java.lang.String\"/>"
+                + "<field name=\"notes\" class=\"java.lang.String\"/>"
+                + "<title><band height=\"36\">"
+                + "<staticText><reportElement x=\"0\" y=\"0\" width=\"802\" height=\"28\"/>"
+                + "<textElement><font size=\"14\" isBold=\"true\"/></textElement>"
+                + "<text><![CDATA[Master Absensi Export]]></text></staticText>"
+                + "</band></title>"
+                + "<columnHeader><band height=\"22\">"
+                + buildHeaderText(0, 170, "Coach")
+                + buildHeaderText(170, 120, "Tanggal")
+                + buildHeaderText(290, 90, "Pertemuan")
+                + buildHeaderText(380, 150, "Class")
+                + buildHeaderText(530, 90, "Status")
+                + buildHeaderText(620, 182, "Catatan")
+                + "</band></columnHeader>"
+                + "<detail><band height=\"20\">"
+                + buildDetailTextField(0, 170, "coachName")
+                + buildDetailTextField(170, 120, "attendanceDate")
+                + buildDetailTextField(290, 90, "meeting")
+                + buildDetailTextField(380, 150, "levelName")
+                + buildDetailTextField(530, 90, "status")
+                + buildDetailTextField(620, 182, "notes")
+                + "</band></detail>"
+                + "</jasperReport>";
+    }
+
+    private String buildHeaderText(int x, int width, String text) {
+        return "<staticText><reportElement x=\"" + x + "\" y=\"0\" width=\"" + width + "\" height=\"20\"/>"
+                + "<box><pen lineWidth=\"0.6\" lineColor=\"#CBD5E1\"/></box>"
+                + "<textElement><font size=\"10\" isBold=\"true\"/></textElement>"
+                + "<text><![CDATA[" + text + "]]></text></staticText>";
+    }
+
+    private String buildDetailTextField(int x, int width, String field) {
+        return "<textField textAdjust=\"StretchHeight\"><reportElement x=\"" + x + "\" y=\"0\" width=\"" + width + "\" height=\"18\"/>"
+                + "<box><pen lineWidth=\"0.5\" lineColor=\"#CBD5E1\"/></box>"
+                + "<textElement><font size=\"9\"/></textElement>"
+                + "<textFieldExpression><![CDATA[$F{" + field + "}]]></textFieldExpression></textField>";
+    }
+
+    private void exportXlsx(File file) throws Exception {
+        List<String[]> rows = new ArrayList<>();
+        rows.add(new String[]{"coach", "tanggal", "pertemuan", "class", "status", "catatan"});
+        for (AttendanceForm form : sourceItems) {
+            rows.add(new String[]{
+                    safeText(form.getCoachName()),
+                    form.getAttendanceDate() == null ? "" : form.getAttendanceDate().toString(),
+                    String.valueOf(form.getPertemuanKe()),
+                    safeText(form.getLevelName()),
+                    form.isActive() ? "Aktif" : "Nonaktif",
+                    safeText(form.getNotes())
+            });
+        }
+        writeXlsx(file, "MasterAbsensi", rows);
+    }
+
+    private void importCsv(File file) {
+        int success = 0;
+        int failed = 0;
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            String line;
+            boolean first = true;
+            while ((line = reader.readLine()) != null) {
+                if (first) {
+                    first = false;
+                    continue;
+                }
+                if (line.trim().isEmpty()) {
+                    continue;
+                }
+                String[] parts = parseCsvLine(line);
+                if (parts.length < 5) {
+                    failed++;
+                    continue;
+                }
+                try {
+                    attendanceFormManagementService.createForm(
+                            resolveCoachUuid(parts[0]),
+                            resolveLevelUuid(parts[3]),
+                            parts[1],
+                            parts[2],
+                            !"nonaktif".equalsIgnoreCase(parts[4].trim()),
+                            parts.length > 5 ? parts[5] : "");
+                    success++;
+                } catch (Exception exception) {
+                    failed++;
+                }
+            }
+            loadData();
+            setStatusSuccess("Import master absensi selesai. Berhasil: " + success + ", gagal: " + failed);
+        } catch (Exception exception) {
+            setStatusError("Gagal import CSV master absensi: " + exception.getMessage());
+        }
+    }
+
+    private void importXlsx(File file) {
+        int success = 0;
+        int failed = 0;
+        try {
+            for (String[] parts : readSheetRows(file)) {
+                if (parts.length < 5) {
+                    failed++;
+                    continue;
+                }
+                if ("coach".equalsIgnoreCase(parts[0])) {
+                    continue;
+                }
+                try {
+                    attendanceFormManagementService.createForm(
+                            resolveCoachUuid(parts[0]),
+                            resolveLevelUuid(parts[3]),
+                            parts[1],
+                            parts[2],
+                            !"nonaktif".equalsIgnoreCase(parts[4].trim()),
+                            parts.length > 5 ? parts[5] : "");
+                    success++;
+                } catch (Exception exception) {
+                    failed++;
+                }
+            }
+            loadData();
+            setStatusSuccess("Import master absensi selesai. Berhasil: " + success + ", gagal: " + failed);
+        } catch (Exception exception) {
+            setStatusError("Gagal import XLSX master absensi: " + exception.getMessage());
+        }
+    }
+
+    private String resolveCoachUuid(String coachName) {
+        String normalized = coachName == null ? "" : coachName.trim();
+        for (User coach : coachUsers) {
+            if (coach != null && normalized.equalsIgnoreCase(coach.getFullName())) {
+                return coach.getUuid();
+            }
+        }
+        throw new IllegalArgumentException("Coach tidak ditemukan: " + normalized);
+    }
+
+    private String resolveLevelUuid(String levelName) {
+        String normalized = levelName == null ? "" : levelName.trim();
+        for (Level level : levels) {
+            if (level != null && normalized.equalsIgnoreCase(level.getName())) {
+                return level.getUuid();
+            }
+        }
+        throw new IllegalArgumentException("Level tidak ditemukan: " + normalized);
+    }
+
+    private void writeXlsx(File file, String sheetName, List<String[]> rows) throws Exception {
+        try (ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(file))) {
+            writeZipEntry(zip, "[Content_Types].xml",
+                    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                            + "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
+                            + "<Default Extension=\"rels\" ContentType=\"application/vnd.openxmlformats-package.relationships+xml\"/>"
+                            + "<Default Extension=\"xml\" ContentType=\"application/xml\"/>"
+                            + "<Override PartName=\"/xl/workbook.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml\"/>"
+                            + "<Override PartName=\"/xl/worksheets/sheet1.xml\" ContentType=\"application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml\"/>"
+                            + "</Types>");
+            writeZipEntry(zip, "_rels/.rels",
+                    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                            + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+                            + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument\" Target=\"xl/workbook.xml\"/>"
+                            + "</Relationships>");
+            writeZipEntry(zip, "xl/workbook.xml",
+                    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                            + "<workbook xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\" "
+                            + "xmlns:r=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships\">"
+                            + "<sheets><sheet name=\"" + escapeXml(sheetName) + "\" sheetId=\"1\" r:id=\"rId1\"/></sheets></workbook>");
+            writeZipEntry(zip, "xl/_rels/workbook.xml.rels",
+                    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                            + "<Relationships xmlns=\"http://schemas.openxmlformats.org/package/2006/relationships\">"
+                            + "<Relationship Id=\"rId1\" Type=\"http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet\" Target=\"worksheets/sheet1.xml\"/>"
+                            + "</Relationships>");
+            writeZipEntry(zip, "xl/worksheets/sheet1.xml", buildSheetXml(rows));
+        }
+    }
+
+    private String buildSheetXml(List<String[]> rows) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("<?xml version=\"1.0\" encoding=\"UTF-8\"?>");
+        sb.append("<worksheet xmlns=\"http://schemas.openxmlformats.org/spreadsheetml/2006/main\"><sheetData>");
+        for (int r = 0; r < rows.size(); r++) {
+            sb.append("<row r=\"").append(r + 1).append("\">");
+            String[] cols = rows.get(r);
+            for (int c = 0; c < cols.length; c++) {
+                String ref = columnName(c) + (r + 1);
+                sb.append("<c r=\"").append(ref).append("\" t=\"inlineStr\"><is><t>")
+                        .append(escapeXml(cols[c]))
+                        .append("</t></is></c>");
+            }
+            sb.append("</row>");
+        }
+        sb.append("</sheetData></worksheet>");
+        return sb.toString();
+    }
+
+    private List<String[]> readSheetRows(File file) throws Exception {
+        try (ZipFile zip = new ZipFile(file)) {
+            Map<Integer, String> shared = readSharedStrings(zip);
+            ZipEntry sheet = zip.getEntry("xl/worksheets/sheet1.xml");
+            if (sheet == null) {
+                throw new IllegalArgumentException("sheet1.xml tidak ditemukan.");
+            }
+            Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(zip.getInputStream(sheet));
+            NodeList rows = doc.getElementsByTagNameNS("*", "row");
+            List<String[]> result = new ArrayList<>();
+            for (int i = 0; i < rows.getLength(); i++) {
+                Element row = (Element) rows.item(i);
+                NodeList cells = row.getElementsByTagNameNS("*", "c");
+                List<String> values = new ArrayList<>();
+                int expectedCol = 0;
+                for (int j = 0; j < cells.getLength(); j++) {
+                    Element cell = (Element) cells.item(j);
+                    int col = columnIndex(cell.getAttribute("r"));
+                    while (expectedCol < col) {
+                        values.add("");
+                        expectedCol++;
+                    }
+                    values.add(readCellValue(cell, shared));
+                    expectedCol++;
+                }
+                result.add(values.toArray(new String[0]));
+            }
+            return result;
+        }
+    }
+
+    private Map<Integer, String> readSharedStrings(ZipFile zip) throws Exception {
+        Map<Integer, String> map = new HashMap<>();
+        ZipEntry shared = zip.getEntry("xl/sharedStrings.xml");
+        if (shared == null) {
+            return map;
+        }
+        Document doc = DocumentBuilderFactory.newInstance().newDocumentBuilder().parse(zip.getInputStream(shared));
+        NodeList texts = doc.getElementsByTagNameNS("*", "t");
+        for (int i = 0; i < texts.getLength(); i++) {
+            map.put(i, texts.item(i).getTextContent());
+        }
+        return map;
+    }
+
+    private String readCellValue(Element cell, Map<Integer, String> shared) {
+        String type = cell.getAttribute("t");
+        NodeList vList = cell.getElementsByTagNameNS("*", "v");
+        if ("inlineStr".equals(type)) {
+            NodeList tList = cell.getElementsByTagNameNS("*", "t");
+            return tList.getLength() > 0 ? tList.item(0).getTextContent() : "";
+        }
+        if ("s".equals(type) && vList.getLength() > 0) {
+            int idx = Integer.parseInt(vList.item(0).getTextContent());
+            return shared.getOrDefault(idx, "");
+        }
+        return vList.getLength() > 0 ? vList.item(0).getTextContent() : "";
+    }
+
+    private int columnIndex(String ref) {
+        int idx = 0;
+        for (int i = 0; i < ref.length(); i++) {
+            char ch = ref.charAt(i);
+            if (!Character.isLetter(ch)) {
+                break;
+            }
+            idx = idx * 26 + (Character.toUpperCase(ch) - 'A' + 1);
+        }
+        return Math.max(0, idx - 1);
+    }
+
+    private String columnName(int index) {
+        StringBuilder sb = new StringBuilder();
+        int value = index;
+        do {
+            sb.insert(0, (char) ('A' + (value % 26)));
+            value = value / 26 - 1;
+        } while (value >= 0);
+        return sb.toString();
+    }
+
+    private void writeZipEntry(ZipOutputStream zip, String name, String content) throws Exception {
+        ZipEntry entry = new ZipEntry(name);
+        zip.putNextEntry(entry);
+        zip.write(content.getBytes(StandardCharsets.UTF_8));
+        zip.closeEntry();
+    }
+
+    private String[] parseCsvLine(String line) {
+        List<String> values = new ArrayList<>();
+        StringBuilder current = new StringBuilder();
+        boolean quoted = false;
+        for (int i = 0; i < line.length(); i++) {
+            char ch = line.charAt(i);
+            if (ch == '"') {
+                if (quoted && i + 1 < line.length() && line.charAt(i + 1) == '"') {
+                    current.append('"');
+                    i++;
+                } else {
+                    quoted = !quoted;
+                }
+                continue;
+            }
+            if (ch == ',' && !quoted) {
+                values.add(current.toString());
+                current.setLength(0);
+                continue;
+            }
+            current.append(ch);
+        }
+        values.add(current.toString());
+        return values.toArray(new String[0]);
+    }
+
+    private String escapeXml(String value) {
+        if (value == null) {
+            return "";
+        }
+        return value.replace("&", "&amp;")
+                .replace("<", "&lt;")
+                .replace(">", "&gt;")
+                .replace("\"", "&quot;")
+                .replace("'", "&apos;");
+    }
+
+    private File normalizeChosenFile(JFileChooser chooser, boolean saveMode) {
+        File selected = chooser.getSelectedFile();
+        if (selected == null) {
+            return null;
+        }
+        String path = selected.getPath();
+        File resolved = selected;
+        if (path == null || path.contains("ShellFolder:") || path.startsWith("::{")) {
+            File currentDirectory = chooser.getCurrentDirectory() == null ? new File(".") : chooser.getCurrentDirectory();
+            resolved = new File(currentDirectory, selected.getName());
+        }
+        if (saveMode && !resolved.getName().toLowerCase().endsWith(".xlsx") && !resolved.getName().toLowerCase().endsWith(".csv")) {
+            resolved = appendExtension(resolved, "xlsx");
+        }
+        return resolved;
+    }
+
+    private File appendExtension(File file, String extension) {
+        String lowerName = file.getName().toLowerCase();
+        if (lowerName.endsWith("." + extension.toLowerCase())) {
+            return file;
+        }
+        File parent = file.getParentFile();
+        if (parent == null) {
+            return new File(file.getName() + "." + extension);
+        }
+        return new File(parent, file.getName() + "." + extension);
+    }
+
+    private String rootErrorMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        String message = current.getMessage();
+        return message == null || message.trim().isEmpty() ? current.getClass().getSimpleName() : message;
+    }
+
     private boolean canCreate() {
         return (currentUser != null && currentUser.isSuperAdmin()) || (modulePermission != null && modulePermission.canCreate());
+    }
+
+    private boolean canExport() {
+        return (currentUser != null && currentUser.isSuperAdmin()) || (modulePermission != null && modulePermission.canExport());
+    }
+
+    private boolean canImport() {
+        return (currentUser != null && currentUser.isSuperAdmin()) || (modulePermission != null && modulePermission.canImport());
     }
 
     private boolean canUpdate() {
@@ -702,6 +1336,96 @@ public class MasterAttendanceScreen extends JPanel {
         @Override
         public String toString() {
             return name == null || name.trim().isEmpty() ? "-" : name;
+        }
+    }
+
+    public static final class AttendanceExportRow {
+        private final String coachName;
+        private final String attendanceDate;
+        private final String meeting;
+        private final String levelName;
+        private final String status;
+        private final String notes;
+
+        public AttendanceExportRow(String coachName, String attendanceDate, String meeting, String levelName, String status, String notes) {
+            this.coachName = coachName;
+            this.attendanceDate = attendanceDate;
+            this.meeting = meeting;
+            this.levelName = levelName;
+            this.status = status;
+            this.notes = notes;
+        }
+
+        public String getCoachName() {
+            return coachName;
+        }
+
+        public String getAttendanceDate() {
+            return attendanceDate;
+        }
+
+        public String getMeeting() {
+            return meeting;
+        }
+
+        public String getLevelName() {
+            return levelName;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public String getNotes() {
+            return notes;
+        }
+    }
+
+    public static final class AttendanceChecklistExportRow {
+        private final String attendanceDate;
+        private final String meeting;
+        private final String coachName;
+        private final String muridName;
+        private final String levelName;
+        private final String status;
+        private final String notes;
+
+        public AttendanceChecklistExportRow(String attendanceDate, String meeting, String coachName, String muridName, String levelName, String status, String notes) {
+            this.attendanceDate = attendanceDate;
+            this.meeting = meeting;
+            this.coachName = coachName;
+            this.muridName = muridName;
+            this.levelName = levelName;
+            this.status = status;
+            this.notes = notes;
+        }
+
+        public String getAttendanceDate() {
+            return attendanceDate;
+        }
+
+        public String getMeeting() {
+            return meeting;
+        }
+
+        public String getCoachName() {
+            return coachName;
+        }
+
+        public String getMuridName() {
+            return muridName;
+        }
+
+        public String getLevelName() {
+            return levelName;
+        }
+
+        public String getStatus() {
+            return status;
+        }
+
+        public String getNotes() {
+            return notes;
         }
     }
 

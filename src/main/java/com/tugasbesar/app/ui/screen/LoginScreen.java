@@ -9,6 +9,7 @@ import com.tugasbesar.app.ui.ScreenManager;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
@@ -22,6 +23,10 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Image;
+import java.awt.Graphics;
+import java.awt.Graphics2D;
+import java.awt.Insets;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -76,6 +81,7 @@ public class LoginScreen extends JPanel {
 
         JTextField identityField = createTextField();
         JPasswordField passwordField = createPasswordField();
+        JPanel passwordFieldWrapper = buildPasswordFieldWrapper(passwordField);
 
         messageLabel.setForeground(new Color(254, 202, 202));
         messageLabel.setFont(new Font("SansSerif", Font.PLAIN, 15));
@@ -89,7 +95,9 @@ public class LoginScreen extends JPanel {
                 messageLabel.setText(" ");
                 screenManager.showDashboardScreen(user);
             } catch (Exception exception) {
-                messageLabel.setText(exception.getMessage());
+                messageLabel.setText(exception.getMessage() == null || exception.getMessage().trim().isEmpty()
+                        ? "Login gagal. Silakan coba lagi."
+                        : exception.getMessage());
             }
         };
 
@@ -103,11 +111,11 @@ public class LoginScreen extends JPanel {
         card.add(Box.createVerticalStrut(8));
         card.add(subtitleLabel);
         card.add(Box.createVerticalStrut(14));
-        card.add(createFieldLabel("Username atau Email"));
+        card.add(createFieldLabel("Email"));
         card.add(identityField);
         card.add(Box.createVerticalStrut(12));
         card.add(createFieldLabel("Password"));
-        card.add(passwordField);
+        card.add(passwordFieldWrapper);
         card.add(Box.createVerticalStrut(10));
         card.add(messageLabel);
         card.add(Box.createVerticalStrut(12));
@@ -227,6 +235,88 @@ public class LoginScreen extends JPanel {
         passwordField.setCaretColor(Color.WHITE);
         passwordField.setBorder(BorderFactory.createLineBorder(new Color(100, 116, 139)));
         return passwordField;
+    }
+
+    private JPanel buildPasswordFieldWrapper(JPasswordField passwordField) {
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setOpaque(false);
+        wrapper.setAlignmentX(Component.LEFT_ALIGNMENT);
+        wrapper.setMaximumSize(new Dimension(Integer.MAX_VALUE, 44));
+        wrapper.setPreferredSize(new Dimension(360, 44));
+
+        JPanel shell = new JPanel(new BorderLayout());
+        shell.setOpaque(true);
+        shell.setBackground(new Color(30, 41, 59));
+        shell.setBorder(BorderFactory.createLineBorder(new Color(100, 116, 139)));
+        shell.setPreferredSize(new Dimension(360, 44));
+
+        passwordField.setBorder(BorderFactory.createEmptyBorder(0, 10, 0, 0));
+
+        JButton toggleButton = new JButton(new EyeIcon());
+        toggleButton.setFocusPainted(false);
+        toggleButton.setContentAreaFilled(false);
+        toggleButton.setOpaque(false);
+        toggleButton.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 8));
+        toggleButton.setMargin(new Insets(0, 0, 0, 0));
+        toggleButton.setPreferredSize(new Dimension(44, 44));
+        toggleButton.setToolTipText("Tampilkan/Sembunyikan Password");
+
+        char defaultEchoChar = passwordField.getEchoChar();
+        toggleButton.addActionListener(event -> {
+            boolean showing = passwordField.getEchoChar() == (char) 0;
+            passwordField.setEchoChar(showing ? defaultEchoChar : (char) 0);
+            toggleButton.setIcon(showing ? new EyeIcon() : new EyeOffIcon());
+        });
+
+        shell.add(passwordField, BorderLayout.CENTER);
+        shell.add(toggleButton, BorderLayout.EAST);
+        wrapper.add(shell, BorderLayout.CENTER);
+        return wrapper;
+    }
+
+    private static final class EyeIcon extends javax.swing.ImageIcon {
+        @Override
+        public synchronized void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(new Color(226, 232, 240));
+            g2.drawOval(x + 6, y + 12, 18, 10);
+            g2.fillOval(x + 13, y + 15, 4, 4);
+            g2.dispose();
+        }
+
+        @Override
+        public int getIconWidth() {
+            return 30;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return 30;
+        }
+    }
+
+    private static final class EyeOffIcon extends javax.swing.ImageIcon {
+        @Override
+        public synchronized void paintIcon(Component c, Graphics g, int x, int y) {
+            Graphics2D g2 = (Graphics2D) g.create();
+            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2.setColor(new Color(56, 189, 248));
+            g2.drawOval(x + 6, y + 12, 18, 10);
+            g2.fillOval(x + 13, y + 15, 4, 4);
+            g2.drawLine(x + 6, y + 24, x + 24, y + 10);
+            g2.dispose();
+        }
+
+        @Override
+        public int getIconWidth() {
+            return 30;
+        }
+
+        @Override
+        public int getIconHeight() {
+            return 30;
+        }
     }
 
     private RoundedButton createButton(String text, Color background, Color foreground, Color borderColor) {

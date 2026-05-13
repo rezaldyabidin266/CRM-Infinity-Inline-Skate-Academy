@@ -237,12 +237,13 @@ public class UserRepository {
 
     public List<User> findMuridUsersForCoachLevelAndGrade(String coachUuid) {
         String sql = "SELECT u.uuid, u.full_name, u.username, u.email, u.password_hash, "
-                + "u.role_uuid, r.name AS role, u.level_uuid, l.name AS level_name, u.is_super_admin, u.is_active, "
+                + "u.role_uuid, r.name AS role, u.grade_uuid, g.name AS grade_name, u.level_uuid, l.name AS level_name, u.is_super_admin, u.is_active, "
                 + "u.last_login_at, u.created_at, u.updated_at "
                 + "FROM users coach "
                 + "JOIN levels coach_level ON coach_level.uuid = coach.level_uuid "
                 + "JOIN users u ON u.level_uuid = coach.level_uuid "
                 + "JOIN levels l ON l.uuid = u.level_uuid "
+                + "LEFT JOIN grades g ON g.uuid = u.grade_uuid "
                 + "JOIN roles r ON r.uuid = u.role_uuid "
                 + "WHERE coach.uuid = ? "
                 + "AND u.is_super_admin = 0 "
@@ -262,7 +263,7 @@ public class UserRepository {
             }
             return users;
         } catch (SQLException exception) {
-            throw new RuntimeException("Gagal mengambil daftar murid untuk coach.", exception);
+            throw new RuntimeException("Gagal memuat data dashboard.", exception);
         }
     }
 

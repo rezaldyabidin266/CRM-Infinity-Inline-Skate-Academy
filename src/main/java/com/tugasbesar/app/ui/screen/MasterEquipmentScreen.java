@@ -595,12 +595,14 @@ public class MasterEquipmentScreen extends JPanel {
 
     private String buildHeaderText(int x, int width, String text) {
         return "<staticText><reportElement x=\"" + x + "\" y=\"0\" width=\"" + width + "\" height=\"20\"/>"
+                + "<box><pen lineWidth=\"0.6\" lineColor=\"#CBD5E1\"/></box>"
                 + "<textElement><font size=\"10\" isBold=\"true\"/></textElement>"
                 + "<text><![CDATA[" + text + "]]></text></staticText>";
     }
 
     private String buildDetailTextField(int x, int width, String field) {
         return "<textField textAdjust=\"StretchHeight\"><reportElement x=\"" + x + "\" y=\"0\" width=\"" + width + "\" height=\"18\"/>"
+                + "<box><pen lineWidth=\"0.5\" lineColor=\"#CBD5E1\"/></box>"
                 + "<textElement><font size=\"9\"/></textElement>"
                 + "<textFieldExpression><![CDATA[$F{" + field + "}]]></textFieldExpression></textField>";
     }

@@ -57,33 +57,31 @@ public class AuthService {
 
     public User login(String identity, String password) {
         if (identity == null || identity.trim().isEmpty()) {
-            throw new IllegalArgumentException("Username atau email wajib diisi.");
+            throw new IllegalArgumentException("Email wajib diisi.");
         }
 
         if (password == null || password.isEmpty()) {
             throw new IllegalArgumentException("Password wajib diisi.");
         }
 
-        User user = userRepository.findByUsernameOrEmail(identity.trim());
-        if (user == null) {
-            throw new IllegalArgumentException("Akun tidak ditemukan.");
-        }
+        try {
+            User user = userRepository.findByUsernameOrEmail(identity.trim());
+            if (user == null || !user.isActive() || !PasswordUtil.matches(password, user.getPasswordHash())) {
+                throw new IllegalArgumentException("Email atau password tidak valid.");
+            }
 
-        if (!user.isActive()) {
-            throw new IllegalArgumentException("Akun tidak aktif.");
+            if (user.isSuperAdmin()) {
+                user.setAccessibleModules(accessControlRepository.findAllModules());
+            } else {
+                user.setAccessibleModules(accessControlRepository.findModulesByRoleUuid(user.getRoleUuid()));
+            }
+            userRepository.updateLastLogin(user.getUuid());
+            return user;
+        } catch (IllegalArgumentException exception) {
+            throw exception;
+        } catch (Exception exception) {
+            throw new IllegalArgumentException("Login gagal. Silakan coba lagi.");
         }
-
-        if (!PasswordUtil.matches(password, user.getPasswordHash())) {
-            throw new IllegalArgumentException("Password salah.");
-        }
-
-        if (user.isSuperAdmin()) {
-            user.setAccessibleModules(accessControlRepository.findAllModules());
-        } else {
-            user.setAccessibleModules(accessControlRepository.findModulesByRoleUuid(user.getRoleUuid()));
-        }
-        userRepository.updateLastLogin(user.getUuid());
-        return user;
     }
 
     public List<String> getAvailableRoles() {

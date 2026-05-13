@@ -2,6 +2,7 @@ package com.tugasbesar.app.repository;
 
 import com.tugasbesar.app.database.DatabaseConnection;
 import com.tugasbesar.app.model.CoachPaymentSummary;
+import com.tugasbesar.app.model.CoachSalaryPaymentRecord;
 import com.tugasbesar.app.model.GradeCoachPaymentRate;
 import com.tugasbesar.app.model.LevelPaymentConfig;
 import com.tugasbesar.app.model.StudentPaymentRecord;
@@ -205,6 +206,98 @@ public class PaymentRepository {
             statement.executeUpdate();
         } catch (SQLException exception) {
             throw new RuntimeException("Gagal memperbarui pembayaran murid.", exception);
+        }
+    }
+
+    public void syncCoachSalaryPaymentsForPeriod(int year, int month) {
+        String sql = "INSERT INTO coach_salary_payments (uuid, coach_uuid, grade_uuid, payment_year, payment_month, salary_amount, is_paid, paid_at, notes) "
+                + "SELECT UUID(), u.uuid, u.grade_uuid, ?, ?, COALESCE(r.monthly_rate, 0), 0, NULL, '' "
+                + "FROM users u "
+                + "JOIN roles ro ON ro.uuid = u.role_uuid "
+                + "LEFT JOIN grade_coach_payment_rates r ON r.grade_uuid = u.grade_uuid "
+                + "WHERE u.is_super_admin = 0 "
+                + "  AND (LOWER(ro.name) LIKE '%pelatih%' OR LOWER(ro.name) LIKE '%coach%' OR LOWER(ro.name) LIKE '%trainer%' OR LOWER(ro.name) LIKE '%instruktur%') "
+                + "ON DUPLICATE KEY UPDATE grade_uuid = VALUES(grade_uuid), salary_amount = VALUES(salary_amount)";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setInt(1, year);
+            statement.setInt(2, month);
+            statement.executeUpdate();
+        } catch (SQLException exception) {
+            throw new RuntimeException("Gagal sinkronisasi pembayaran gaji coach.", exception);
+        }
+    }
+
+    public List<CoachSalaryPaymentRecord> findCoachSalaryPayments(int year, int month, String gradeName, Boolean paidOnly) {
+        StringBuilder sql = new StringBuilder(
+                "SELECT cp.uuid, cp.coach_uuid, u.full_name AS coach_name, g.name AS grade_name, cp.payment_year, cp.payment_month, "
+                        + "cp.salary_amount, cp.is_paid, cp.paid_at, cp.notes "
+                        + "FROM coach_salary_payments cp "
+                        + "JOIN users u ON u.uuid = cp.coach_uuid "
+                        + "LEFT JOIN grades g ON g.uuid = cp.grade_uuid "
+                        + "WHERE cp.payment_year = ? AND cp.payment_month = ?");
+        List<Object> params = new ArrayList<>();
+        params.add(year);
+        params.add(month);
+        if (gradeName != null && !gradeName.trim().isEmpty()) {
+            sql.append(" AND LOWER(g.name) = LOWER(?)");
+            params.add(gradeName.trim());
+        }
+        if (paidOnly != null) {
+            sql.append(" AND cp.is_paid = ?");
+            params.add(paidOnly);
+        }
+        sql.append(" ORDER BY g.name ASC, u.full_name ASC");
+
+        List<CoachSalaryPaymentRecord> rows = new ArrayList<>();
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql.toString())) {
+            for (int index = 0; index < params.size(); index++) {
+                Object value = params.get(index);
+                if (value instanceof Integer) {
+                    statement.setInt(index + 1, (Integer) value);
+                } else if (value instanceof Boolean) {
+                    statement.setBoolean(index + 1, (Boolean) value);
+                } else {
+                    statement.setString(index + 1, String.valueOf(value));
+                }
+            }
+            try (ResultSet resultSet = statement.executeQuery()) {
+                while (resultSet.next()) {
+                    CoachSalaryPaymentRecord row = new CoachSalaryPaymentRecord();
+                    row.setUuid(resultSet.getString("uuid"));
+                    row.setCoachUuid(resultSet.getString("coach_uuid"));
+                    row.setCoachName(resultSet.getString("coach_name"));
+                    row.setGradeName(resultSet.getString("grade_name"));
+                    row.setPaymentYear(resultSet.getInt("payment_year"));
+                    row.setPaymentMonth(resultSet.getInt("payment_month"));
+                    row.setSalaryAmount(resultSet.getBigDecimal("salary_amount"));
+                    row.setPaid(resultSet.getBoolean("is_paid"));
+                    Timestamp paidAt = resultSet.getTimestamp("paid_at");
+                    if (paidAt != null) {
+                        row.setPaidAt(paidAt.toLocalDateTime());
+                    }
+                    row.setNotes(resultSet.getString("notes"));
+                    rows.add(row);
+                }
+            }
+            return rows;
+        } catch (SQLException exception) {
+            throw new RuntimeException("Gagal mengambil pembayaran gaji coach.", exception);
+        }
+    }
+
+    public void updateCoachSalaryPayment(String paymentUuid, boolean paid, String notes) {
+        String sql = "UPDATE coach_salary_payments SET is_paid = ?, paid_at = ?, notes = ? WHERE uuid = ?";
+        try (Connection connection = DatabaseConnection.getConnection();
+             PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setBoolean(1, paid);
+            statement.setTimestamp(2, paid ? Timestamp.valueOf(LocalDateTime.now()) : null);
+            statement.setString(3, notes == null ? "" : notes.trim());
+            statement.setString(4, paymentUuid);
+            statement.executeUpdate();
+        } catch (SQLException exception) {
+            throw new RuntimeException("Gagal memperbarui pembayaran gaji coach.", exception);
         }
     }
 

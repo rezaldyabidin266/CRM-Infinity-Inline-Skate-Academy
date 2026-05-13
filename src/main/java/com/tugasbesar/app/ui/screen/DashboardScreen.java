@@ -491,7 +491,7 @@ public class DashboardScreen extends JPanel {
 
         JMenuItem masterPembayaran = new JMenuItem("Master Pembayaran");
         masterPembayaran.setFont(new Font("SansSerif", Font.BOLD, 13));
-        masterPembayaran.setIcon(UIManager.getIcon("FileView.fileIcon"));
+        masterPembayaran.setIcon(UIManager.getIcon("FileChooser.detailsViewIcon"));
         masterPembayaran.setBorder(BorderFactory.createEmptyBorder(6, 4, 6, 8));
         masterPembayaran.setMargin(new Insets(0, 0, 0, 0));
         masterPembayaran.setIconTextGap(8);
@@ -604,13 +604,43 @@ public class DashboardScreen extends JPanel {
     }
 
     private void showHomePage() {
-        setHeader("Dashboard", " ");
-
-        JPanel content = new JPanel(new BorderLayout());
-        content.setOpaque(false);
-
-        setBody(content);
+        setHeader(getDashboardTitle(), getDashboardSubtitle());
+        setBody(new RoleDashboardPanel(user));
         highlightNav("HOME");
+    }
+
+    private String getDashboardTitle() {
+        if (user == null) {
+            return "Dashboard";
+        }
+        if (user.isSuperAdmin()) {
+            return "Dashboard Admin";
+        }
+        String role = user.getRole() == null ? "" : user.getRole().toLowerCase();
+        if (role.contains("coach") || role.contains("pelatih") || role.contains("trainer") || role.contains("instruktur")) {
+            return "Dashboard Coach";
+        }
+        if (role.contains("murid") || role.contains("student") || role.contains("siswa") || role.contains("trial")) {
+            return "Dashboard Murid";
+        }
+        return "Dashboard Admin";
+    }
+
+    private String getDashboardSubtitle() {
+        if (user == null) {
+            return "Ringkasan halaman utama.";
+        }
+        if (user.isSuperAdmin()) {
+            return "Ringkasan operasional akademi secara menyeluruh.";
+        }
+        String role = user.getRole() == null ? "" : user.getRole().toLowerCase();
+        if (role.contains("coach") || role.contains("pelatih") || role.contains("trainer") || role.contains("instruktur")) {
+            return "Ringkasan aktivitas coach, absensi, dan murid yang Anda pegang.";
+        }
+        if (role.contains("murid") || role.contains("student") || role.contains("siswa") || role.contains("trial")) {
+            return "Ringkasan pribadi untuk kehadiran, class, dan pembayaran Anda.";
+        }
+        return "Ringkasan operasional akademi secara menyeluruh.";
     }
 
     private void openModule(AppModule module) {
@@ -702,7 +732,7 @@ public class DashboardScreen extends JPanel {
     }
 
     private void openMasterPayment(AppModule module) {
-        setHeader("Master Pembayaran", "Kelola SPP murid per level, rate coach per grade, dan checklist pembayaran.");
+        setHeader("Master Pembayaran", "Kelola SPP murid, rate gaji coach, dan checklist pembayaran murid maupun coach.");
         setBody(new MasterPaymentScreen(user, module, this::handleSessionRefresh));
         highlightNav("MASTER");
     }
@@ -775,12 +805,15 @@ public class DashboardScreen extends JPanel {
         public void paintIcon(Component component, Graphics graphics, int x, int y) {
             Graphics2D g2 = (Graphics2D) graphics.create();
             g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(new Color(226, 232, 240));
-            g2.fillRoundRect(x, y, 18, 18, 3, 3);
             g2.setColor(color);
-            g2.setFont(new Font("SansSerif", Font.BOLD, 10));
+            g2.fillRoundRect(x, y, 18, 18, 3, 3);
+            g2.setColor(Color.WHITE);
+            g2.setFont(new Font("SansSerif", Font.BOLD, 9));
             String shortGlyph = glyph.length() > 2 ? glyph.substring(0, 2) : glyph;
-            g2.drawString(shortGlyph, x + 3, y + 12);
+            java.awt.FontMetrics metrics = g2.getFontMetrics();
+            int textX = x + ((18 - metrics.stringWidth(shortGlyph)) / 2);
+            int textY = y + ((18 - metrics.getHeight()) / 2) + metrics.getAscent();
+            g2.drawString(shortGlyph, textX, textY);
             g2.dispose();
         }
 
@@ -794,4 +827,5 @@ public class DashboardScreen extends JPanel {
             return 18;
         }
     }
+
 }
