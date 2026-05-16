@@ -11,13 +11,13 @@ import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.UIManager;
 import javax.swing.JLabel;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JScrollPane;
 import javax.swing.SwingConstants;
-import javax.swing.UIManager;
 import javax.swing.Icon;
 import javax.swing.ImageIcon;
 import javax.imageio.ImageIO;
@@ -57,6 +57,7 @@ public class DashboardScreen extends JPanel {
     private final UserRepository userRepository;
     private final JPanel navMenuPanel;
     private final JPanel bodyPanel;
+    private final JPanel introPanel;
     private final JLabel pageTitleLabel;
     private final JLabel pageSubtitleLabel;
     private final JLabel userInfoLabel;
@@ -72,6 +73,7 @@ public class DashboardScreen extends JPanel {
         this.userRepository = new UserRepository();
         this.navMenuPanel = new JPanel(new FlowLayout(FlowLayout.LEFT, 10, 0));
         this.bodyPanel = new JPanel(new BorderLayout());
+        this.introPanel = new JPanel();
         this.pageTitleLabel = new JLabel("Dashboard");
         this.pageSubtitleLabel = new JLabel("Ringkasan halaman utama.");
         this.userInfoLabel = new JLabel();
@@ -287,10 +289,9 @@ public class DashboardScreen extends JPanel {
         wrapper.setOpaque(false);
         wrapper.setBorder(BorderFactory.createEmptyBorder(24, 24, 24, 24));
 
-        JPanel introPanel = new JPanel();
+        introPanel.setLayout(new BoxLayout(introPanel, BoxLayout.Y_AXIS));
         introPanel.setOpaque(false);
         introPanel.setBorder(BorderFactory.createEmptyBorder(0, 0, 18, 0));
-        introPanel.setLayout(new BoxLayout(introPanel, BoxLayout.Y_AXIS));
 
         pageTitleLabel.setFont(new Font("SansSerif", Font.BOLD, 30));
         pageTitleLabel.setForeground(new Color(15, 23, 42));
@@ -345,8 +346,9 @@ public class DashboardScreen extends JPanel {
         AppModule attendanceModule = findModuleByName(orderedModules, "Absensi");
         AppModule masterAttendanceModule = findModuleByName(orderedModules, "Master Absensi");
         AppModule masterPaymentModule = findModuleByName(orderedModules, "Master Pembayaran");
-        if (muridModule != null || coachModule != null || equipmentModule != null || masterAttendanceModule != null || masterPaymentModule != null) {
-            JButton masterButton = createMasterDropdownButton(muridModule, coachModule, equipmentModule, masterAttendanceModule, masterPaymentModule);
+        AppModule masterProgressModule = findModuleByName(orderedModules, "Master Progress Murid");
+        if (muridModule != null || coachModule != null || equipmentModule != null || masterAttendanceModule != null || masterPaymentModule != null || masterProgressModule != null) {
+            JButton masterButton = createMasterDropdownButton(muridModule, coachModule, equipmentModule, masterAttendanceModule, masterPaymentModule, masterProgressModule);
             navMenuPanel.add(masterButton);
         }
 
@@ -361,11 +363,12 @@ public class DashboardScreen extends JPanel {
                     || "Master Coach".equalsIgnoreCase(module.getName())
                     || "Master Peralatan".equalsIgnoreCase(module.getName())
                     || "Master Absensi".equalsIgnoreCase(module.getName())
-                    || "Master Pembayaran".equalsIgnoreCase(module.getName())) {
+                    || "Master Pembayaran".equalsIgnoreCase(module.getName())
+                    || "Master Progress Murid".equalsIgnoreCase(module.getName())) {
                 continue;
             }
             String buttonLabel;
-            if ("Role".equalsIgnoreCase(module.getName())) {
+            if (isRoleModule(module.getName())) {
                 buttonLabel = "Roles";
             } else if ("User".equalsIgnoreCase(module.getName())) {
                 buttonLabel = "Users";
@@ -388,23 +391,32 @@ public class DashboardScreen extends JPanel {
         if ("User".equalsIgnoreCase(moduleName)) {
             return 1;
         }
-        if ("Level".equalsIgnoreCase(moduleName)) {
+        if (isRoleModule(moduleName)) {
             return 2;
         }
-        if ("Grade".equalsIgnoreCase(moduleName)) {
+        if ("Level".equalsIgnoreCase(moduleName)) {
             return 3;
         }
-        if ("Absensi".equalsIgnoreCase(moduleName)) {
+        if ("Grade".equalsIgnoreCase(moduleName)) {
             return 4;
         }
-        if ("Role".equalsIgnoreCase(moduleName)) {
+        if ("Absensi".equalsIgnoreCase(moduleName)) {
             return 5;
         }
-        if ("Laporan".equalsIgnoreCase(moduleName)) {
+        if ("Peralatan Coach".equalsIgnoreCase(moduleName)) {
             return 6;
         }
-        if ("Pengaturan".equalsIgnoreCase(moduleName)) {
+        if ("Checklist Progress Murid".equalsIgnoreCase(moduleName)) {
             return 7;
+        }
+        if ("Progress Saya".equalsIgnoreCase(moduleName)) {
+            return 8;
+        }
+        if ("Laporan".equalsIgnoreCase(moduleName)) {
+            return 9;
+        }
+        if ("Pengaturan".equalsIgnoreCase(moduleName)) {
+            return 10;
         }
         return 50;
     }
@@ -418,7 +430,7 @@ public class DashboardScreen extends JPanel {
         return null;
     }
 
-    private JButton createMasterDropdownButton(AppModule muridModule, AppModule coachModule, AppModule equipmentModule, AppModule masterAttendanceModule, AppModule masterPaymentModule) {
+    private JButton createMasterDropdownButton(AppModule muridModule, AppModule coachModule, AppModule equipmentModule, AppModule masterAttendanceModule, AppModule masterPaymentModule, AppModule masterProgressModule) {
         JButton button = createNavButton("MASTER", createNavLabel("\u2630", "Master \u25BE"));
         JPopupMenu popupMenu = new JPopupMenu();
         popupMenu.setBorder(BorderFactory.createLineBorder(new Color(148, 163, 184)));
@@ -491,7 +503,7 @@ public class DashboardScreen extends JPanel {
 
         JMenuItem masterPembayaran = new JMenuItem("Master Pembayaran");
         masterPembayaran.setFont(new Font("SansSerif", Font.BOLD, 13));
-        masterPembayaran.setIcon(UIManager.getIcon("FileChooser.detailsViewIcon"));
+        masterPembayaran.setIcon(resolveMenuIcon("FileChooser.detailsViewIcon", "FileChooser.listViewIcon", "FileView.fileIcon", "Tree.leafIcon"));
         masterPembayaran.setBorder(BorderFactory.createEmptyBorder(6, 4, 6, 8));
         masterPembayaran.setMargin(new Insets(0, 0, 0, 0));
         masterPembayaran.setIconTextGap(8);
@@ -505,14 +517,41 @@ public class DashboardScreen extends JPanel {
             }
         });
 
+        JMenuItem masterProgress = new JMenuItem("Master Progress Murid");
+        masterProgress.setFont(new Font("SansSerif", Font.BOLD, 13));
+        masterProgress.setIcon(resolveMenuIcon("FileChooser.detailsViewIcon", "FileChooser.listViewIcon", "FileView.fileIcon", "Tree.leafIcon"));
+        masterProgress.setBorder(BorderFactory.createEmptyBorder(6, 4, 6, 8));
+        masterProgress.setMargin(new Insets(0, 0, 0, 0));
+        masterProgress.setIconTextGap(8);
+        masterProgress.setHorizontalAlignment(SwingConstants.LEFT);
+        masterProgress.setHorizontalTextPosition(SwingConstants.RIGHT);
+        masterProgress.setPreferredSize(new Dimension(190, 34));
+        masterProgress.setEnabled(masterProgressModule != null);
+        masterProgress.addActionListener(event -> {
+            if (masterProgressModule != null) {
+                openMasterProgress(masterProgressModule);
+            }
+        });
+
         popupMenu.add(masterMurid);
         popupMenu.add(masterCoach);
         popupMenu.add(masterPeralatan);
         popupMenu.add(masterAbsensi);
         popupMenu.add(masterPembayaran);
+        popupMenu.add(masterProgress);
 
         button.addActionListener(event -> popupMenu.show(button, 0, button.getHeight()));
         return button;
+    }
+
+    private Icon resolveMenuIcon(String... keys) {
+        for (String key : keys) {
+            Icon icon = UIManager.getIcon(key);
+            if (icon != null) {
+                return icon;
+            }
+        }
+        return null;
     }
 
     private String buildModuleLabel(String moduleName, String fallbackLabel) {
@@ -528,7 +567,16 @@ public class DashboardScreen extends JPanel {
         if ("Absensi".equalsIgnoreCase(moduleName)) {
             return createNavLabel("\uD83D\uDCC5", "Absensi");
         }
-        if ("Role".equalsIgnoreCase(moduleName)) {
+        if ("Peralatan Coach".equalsIgnoreCase(moduleName)) {
+            return createNavLabel("\u2692", "Peralatan");
+        }
+        if ("Checklist Progress Murid".equalsIgnoreCase(moduleName)) {
+            return createNavLabel("\u2714", "Checklist");
+        }
+        if ("Progress Saya".equalsIgnoreCase(moduleName)) {
+            return createNavLabel("\u25A7", "Progress");
+        }
+        if (isRoleModule(moduleName)) {
             return createNavLabel("\u2699", "Roles");
         }
         if ("Laporan".equalsIgnoreCase(moduleName)) {
@@ -605,6 +653,7 @@ public class DashboardScreen extends JPanel {
 
     private void showHomePage() {
         setHeader(getDashboardTitle(), getDashboardSubtitle());
+        setHeaderVisible(false);
         setBody(new RoleDashboardPanel(user));
         highlightNav("HOME");
     }
@@ -644,6 +693,7 @@ public class DashboardScreen extends JPanel {
     }
 
     private void openModule(AppModule module) {
+        setHeaderVisible(true);
         if ("User".equalsIgnoreCase(module.getName())) {
             setHeader("Users", "Kelola akun pengguna, status aktif, dan penetapan role.");
             setBody(new UserManagementScreen(user, module, this::handleSessionRefresh));
@@ -651,7 +701,7 @@ public class DashboardScreen extends JPanel {
             return;
         }
 
-        if ("Role".equalsIgnoreCase(module.getName())) {
+        if (isRoleModule(module.getName())) {
             setHeader("Roles", "Kelola data role dan atur module yang diizinkan untuk setiap role.");
             setBody(new RoleManagementScreen(user, module, this::handleSessionRefresh));
             highlightNav(module.getCode());
@@ -675,6 +725,27 @@ public class DashboardScreen extends JPanel {
         if ("Absensi".equalsIgnoreCase(module.getName())) {
             setHeader("Absensi", "Isi checklist absensi siswa berdasarkan form aktif coach.");
             setBody(new CoachAttendanceScreen(user, module));
+            highlightNav(module.getCode());
+            return;
+        }
+
+        if ("Peralatan Coach".equalsIgnoreCase(module.getName())) {
+            setHeader("Peralatan Coach", "Lihat ketersediaan peralatan tanpa membuka master peralatan.");
+            setBody(new CoachEquipmentScreen(user, module));
+            highlightNav(module.getCode());
+            return;
+        }
+
+        if ("Checklist Progress Murid".equalsIgnoreCase(module.getName())) {
+            setHeader("Checklist Progress Murid", "Halaman coach untuk mengisi checklist progress kenaikan level murid.");
+            setBody(new CoachProgressChecklistScreen(user, module));
+            highlightNav(module.getCode());
+            return;
+        }
+
+        if ("Progress Saya".equalsIgnoreCase(module.getName())) {
+            setHeader("Progress Saya", "Lihat riwayat progress dari level sebelumnya dan level saat ini.");
+            setBody(new StudentProgressViewScreen(user, module));
             highlightNav(module.getCode());
             return;
         }
@@ -705,6 +776,7 @@ public class DashboardScreen extends JPanel {
     }
 
     private void openMasterData(AppModule module, MasterDataScreen.MasterType type) {
+        setHeaderVisible(true);
         if (type == MasterDataScreen.MasterType.MURID) {
             setHeader("Master Murid", "Daftar user kategori murid untuk kebutuhan report.");
         } else {
@@ -715,25 +787,36 @@ public class DashboardScreen extends JPanel {
     }
 
     private void openMasterEquipment(AppModule module) {
+        setHeaderVisible(true);
         setHeader("Master Peralatan", "Kelola data peralatan sepatu roda.");
         setBody(new MasterEquipmentScreen(user, module, this::handleSessionRefresh));
         highlightNav("MASTER");
     }
 
     private void openUserProfile() {
+        setHeaderVisible(true);
         setHeader("Profile User", "Lihat informasi akun yang sedang login.");
         setBody(new UserProfileScreen(user));
     }
 
     private void openMasterAttendance(AppModule module) {
+        setHeaderVisible(true);
         setHeader("Master Absensi", "Buat form absensi coach per periode dan level.");
         setBody(new MasterAttendanceScreen(user, module));
         highlightNav("MASTER");
     }
 
     private void openMasterPayment(AppModule module) {
+        setHeaderVisible(true);
         setHeader("Master Pembayaran", "Kelola SPP murid, rate gaji coach, dan checklist pembayaran murid maupun coach.");
         setBody(new MasterPaymentScreen(user, module, this::handleSessionRefresh));
+        highlightNav("MASTER");
+    }
+
+    private void openMasterProgress(AppModule module) {
+        setHeaderVisible(true);
+        setHeader("Master Progress Murid", "Kelola template progress per level dan checklist kelulusan murid.");
+        setBody(new MasterProgressScreen(user, module));
         highlightNav("MASTER");
     }
 
@@ -746,6 +829,12 @@ public class DashboardScreen extends JPanel {
         pageSubtitleLabel.setText(subtitle);
     }
 
+    private void setHeaderVisible(boolean visible) {
+        introPanel.setVisible(visible);
+        introPanel.revalidate();
+        introPanel.repaint();
+    }
+
     private void setBody(JPanel panel) {
         bodyPanel.removeAll();
         JScrollPane scrollPane = new JScrollPane(panel);
@@ -755,6 +844,10 @@ public class DashboardScreen extends JPanel {
         bodyPanel.add(scrollPane, BorderLayout.CENTER);
         bodyPanel.revalidate();
         bodyPanel.repaint();
+    }
+
+    private boolean isRoleModule(String moduleName) {
+        return "Role".equalsIgnoreCase(moduleName) || "Role Module".equalsIgnoreCase(moduleName);
     }
 
     private static final class UserProfileIcon implements Icon {
@@ -789,42 +882,6 @@ public class DashboardScreen extends JPanel {
         @Override
         public int getIconHeight() {
             return size;
-        }
-    }
-
-    private static final class MenuGlyphIcon implements Icon {
-        private final String glyph;
-        private final Color color;
-
-        private MenuGlyphIcon(String glyph, Color color) {
-            this.glyph = glyph;
-            this.color = color;
-        }
-
-        @Override
-        public void paintIcon(Component component, Graphics graphics, int x, int y) {
-            Graphics2D g2 = (Graphics2D) graphics.create();
-            g2.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-            g2.setColor(color);
-            g2.fillRoundRect(x, y, 18, 18, 3, 3);
-            g2.setColor(Color.WHITE);
-            g2.setFont(new Font("SansSerif", Font.BOLD, 9));
-            String shortGlyph = glyph.length() > 2 ? glyph.substring(0, 2) : glyph;
-            java.awt.FontMetrics metrics = g2.getFontMetrics();
-            int textX = x + ((18 - metrics.stringWidth(shortGlyph)) / 2);
-            int textY = y + ((18 - metrics.getHeight()) / 2) + metrics.getAscent();
-            g2.drawString(shortGlyph, textX, textY);
-            g2.dispose();
-        }
-
-        @Override
-        public int getIconWidth() {
-            return 18;
-        }
-
-        @Override
-        public int getIconHeight() {
-            return 18;
         }
     }
 

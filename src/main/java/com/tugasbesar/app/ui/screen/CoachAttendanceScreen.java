@@ -170,14 +170,13 @@ public class CoachAttendanceScreen extends JPanel {
         coachCombo.setPreferredSize(new Dimension(170, 34));
         meetingCombo.setPreferredSize(new Dimension(120, 34));
 
-        levelCombo.removeAllItems();
-        levelCombo.addItem(new LevelOption("", "Pilih Class"));
-        for (Level level : levels) {
-            levelCombo.addItem(new LevelOption(level.getUuid(), level.getName()));
-        }
         levelCombo.setPreferredSize(new Dimension(170, 34));
+        reloadLevelComboForCoach(null);
 
-        coachCombo.addActionListener(event -> loadFormsAndTable());
+        coachCombo.addActionListener(event -> {
+            reloadLevelComboForCoach(null);
+            loadFormsAndTable();
+        });
         meetingCombo.addActionListener(event -> loadTable());
         levelCombo.addActionListener(event -> loadTable());
 
@@ -226,6 +225,94 @@ public class CoachAttendanceScreen extends JPanel {
             loadTable();
         } catch (Exception exception) {
             setStatusError(exception.getMessage());
+        }
+    }
+
+    private void reloadLevelComboForCoach(String selectedLevelUuid) {
+        levelCombo.removeAllItems();
+        levelCombo.addItem(new LevelOption("", "Pilih Class"));
+
+        User coach = findSelectedCoach();
+        String coachGradeUuid = effectiveCoachGradeUuid(coach);
+        String coachGradeName = effectiveCoachGradeName(coach);
+        for (Level level : levels) {
+            if (sameGrade(level, coachGradeUuid, coachGradeName)) {
+                levelCombo.addItem(new LevelOption(level.getUuid(), level.getName()));
+            }
+        }
+
+        if (selectedLevelUuid != null && !selectedLevelUuid.trim().isEmpty()) {
+            selectLevel(levelCombo, selectedLevelUuid);
+        }
+        if (levelCombo.getSelectedIndex() <= 0 && levelCombo.getItemCount() > 1) {
+            levelCombo.setSelectedIndex(1);
+        }
+    }
+
+    private User findSelectedCoach() {
+        UserOption option = (UserOption) coachCombo.getSelectedItem();
+        if (option == null || option.uuid == null || option.uuid.trim().isEmpty()) {
+            return null;
+        }
+        if (currentUser != null && option.uuid.equals(currentUser.getUuid())) {
+            return currentUser;
+        }
+        for (User coach : coachUsers) {
+            if (option.uuid.equals(coach.getUuid())) {
+                return coach;
+            }
+        }
+        return null;
+    }
+
+    private boolean sameGrade(Level level, String gradeUuid, String gradeName) {
+        if (level == null) {
+            return false;
+        }
+        if (gradeUuid != null && !gradeUuid.trim().isEmpty() && gradeUuid.equals(level.getGradeUuid())) {
+            return true;
+        }
+        return gradeName != null
+                && !gradeName.trim().isEmpty()
+                && level.getGradeName() != null
+                && gradeName.trim().equalsIgnoreCase(level.getGradeName().trim());
+    }
+
+    private String effectiveCoachGradeUuid(User coach) {
+        Level coachLevel = coach == null ? null : findLevelByUuid(coach.getLevelUuid());
+        if (coachLevel != null && coachLevel.getGradeUuid() != null && !coachLevel.getGradeUuid().trim().isEmpty()) {
+            return coachLevel.getGradeUuid();
+        }
+        return coach == null ? null : coach.getGradeUuid();
+    }
+
+    private String effectiveCoachGradeName(User coach) {
+        Level coachLevel = coach == null ? null : findLevelByUuid(coach.getLevelUuid());
+        if (coachLevel != null && coachLevel.getGradeName() != null && !coachLevel.getGradeName().trim().isEmpty()) {
+            return coachLevel.getGradeName();
+        }
+        return coach == null ? null : coach.getGradeName();
+    }
+
+    private Level findLevelByUuid(String levelUuid) {
+        if (levelUuid == null || levelUuid.trim().isEmpty()) {
+            return null;
+        }
+        for (Level level : levels) {
+            if (levelUuid.equals(level.getUuid())) {
+                return level;
+            }
+        }
+        return null;
+    }
+
+    private void selectLevel(JComboBox<LevelOption> combo, String levelUuid) {
+        for (int i = 0; i < combo.getItemCount(); i++) {
+            LevelOption option = combo.getItemAt(i);
+            if (option != null && levelUuid.equals(option.uuid)) {
+                combo.setSelectedIndex(i);
+                return;
+            }
         }
     }
 
@@ -409,7 +496,8 @@ public class CoachAttendanceScreen extends JPanel {
     private void setStatusSuccess(String message) {
         statusLabel.setOpaque(true);
         statusLabel.setBackground(new Color(220, 252, 231));
-        statusLabel.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+        statusLabel.setHorizontalAlignment(JLabel.LEFT);
+        statusLabel.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
         statusLabel.setForeground(new Color(22, 163, 74));
         statusLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         statusLabel.setText(message);
@@ -418,7 +506,8 @@ public class CoachAttendanceScreen extends JPanel {
     private void setStatusError(String message) {
         statusLabel.setOpaque(true);
         statusLabel.setBackground(new Color(254, 226, 226));
-        statusLabel.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+        statusLabel.setHorizontalAlignment(JLabel.LEFT);
+        statusLabel.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
         statusLabel.setForeground(new Color(220, 38, 38));
         statusLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         statusLabel.setText(message);

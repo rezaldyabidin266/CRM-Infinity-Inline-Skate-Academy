@@ -17,6 +17,7 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridLayout;
 import java.util.List;
@@ -40,7 +41,7 @@ public class RoleDashboardPanel extends JPanel {
 
         setLayout(new BoxLayout(this, BoxLayout.Y_AXIS));
         setOpaque(false);
-        setBorder(BorderFactory.createEmptyBorder(6, 0, 12, 0));
+        setBorder(BorderFactory.createEmptyBorder(0, 0, 12, 0));
 
         add(buildHeroSection());
         add(Box.createVerticalStrut(18));
@@ -74,15 +75,7 @@ public class RoleDashboardPanel extends JPanel {
         text.add(Box.createVerticalStrut(8));
         text.add(subtitle);
 
-        JLabel badge = new JLabel(getRoleBadge());
-        badge.setOpaque(true);
-        badge.setBackground(new Color(30, 64, 175));
-        badge.setForeground(Color.WHITE);
-        badge.setFont(new Font("SansSerif", Font.BOLD, 13));
-        badge.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
-
         hero.add(text, BorderLayout.CENTER);
-        hero.add(badge, BorderLayout.EAST);
         return hero;
     }
 
@@ -94,8 +87,6 @@ public class RoleDashboardPanel extends JPanel {
             add(buildTwoColumnSections(
                     buildActivityCard("Form Coach", "Form aktif dan jadwal terakhir Anda.", data.getActiveForms(), ACCENT_ONE),
                     buildActivityCard("Riwayat Absensi", "Aktivitas absensi murid yang Anda isi.", data.getRecentAttendance(), ACCENT_TWO)));
-            add(Box.createVerticalStrut(18));
-            add(buildSingleSection(buildActivityCard("Catatan Cepat", "Ringkasan akses dan fokus kerja Anda.", data.getQuickNotes(), ACCENT_THREE)));
             return;
         }
 
@@ -106,8 +97,6 @@ public class RoleDashboardPanel extends JPanel {
             add(buildTwoColumnSections(
                     buildActivityCard("Absensi Saya", "Riwayat hadir terbaru Anda.", data.getRecentAttendance(), ACCENT_FOUR),
                     buildActivityCard("Pembayaran Saya", "Status pembayaran pribadi terbaru.", data.getRecentPayments(), ACCENT_TWO)));
-            add(Box.createVerticalStrut(18));
-            add(buildSingleSection(buildActivityCard("Info Siswa", "Informasi penting untuk akun murid.", data.getQuickNotes(), ACCENT_THREE)));
             return;
         }
 
@@ -125,7 +114,7 @@ public class RoleDashboardPanel extends JPanel {
         JPanel panel = new JPanel(new GridLayout(rows, columns, 14, 14));
         panel.setOpaque(false);
         panel.setAlignmentX(Component.LEFT_ALIGNMENT);
-        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, rows * 118));
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, rows * 126));
 
         Color[] accents = new Color[]{ACCENT_ONE, ACCENT_TWO, ACCENT_THREE, ACCENT_FOUR};
         for (int i = 0; i < metrics.size(); i++) {
@@ -135,39 +124,46 @@ public class RoleDashboardPanel extends JPanel {
     }
 
     private JPanel buildMetricCard(DashboardMetric metric, Color accent) {
+        MetricVisual visual = resolveMetricVisual(metric.getLabel(), accent);
+
         JPanel card = new JPanel(new BorderLayout());
         card.setBackground(CARD_BACKGROUND);
         card.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(CARD_BORDER),
-                BorderFactory.createEmptyBorder(16, 16, 16, 16)));
+                BorderFactory.createEmptyBorder(18, 18, 18, 18)));
 
-        JPanel line = new JPanel();
-        line.setBackground(accent);
-        line.setPreferredSize(new Dimension(12, 12));
-        line.setMaximumSize(new Dimension(12, 12));
+        JLabel iconLabel = createChipLabel(visual, 54, 26);
+        iconLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
 
         JLabel label = new JLabel(metric.getLabel());
         label.setFont(new Font("SansSerif", Font.BOLD, 13));
         label.setForeground(SUBTITLE_COLOR);
+        label.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel value = new JLabel(metric.getValue());
         value.setFont(new Font("SansSerif", Font.BOLD, 28));
         value.setForeground(TITLE_COLOR);
+        value.setAlignmentX(Component.LEFT_ALIGNMENT);
 
-        JPanel body = new JPanel();
+        JPanel textBlock = new JPanel();
+        textBlock.setOpaque(false);
+        textBlock.setLayout(new BoxLayout(textBlock, BoxLayout.Y_AXIS));
+        textBlock.add(label);
+        textBlock.add(Box.createVerticalStrut(12));
+        textBlock.add(value);
+
+        JPanel body = new JPanel(new BorderLayout(16, 0));
         body.setOpaque(false);
-        body.setLayout(new BoxLayout(body, BoxLayout.Y_AXIS));
-        body.add(line);
-        body.add(Box.createVerticalStrut(12));
-        body.add(label);
-        body.add(Box.createVerticalStrut(10));
-        body.add(value);
+        body.add(iconLabel, BorderLayout.WEST);
+        body.add(textBlock, BorderLayout.CENTER);
 
         card.add(body, BorderLayout.CENTER);
         return card;
     }
 
     private JPanel buildActivityCard(String title, String subtitle, List<DashboardActivityItem> items, Color accent) {
+        MetricVisual visual = resolveSectionVisual(title, accent);
+
         JPanel card = new JPanel(new BorderLayout(0, 14));
         card.setBackground(CARD_BACKGROUND);
         card.setBorder(BorderFactory.createCompoundBorder(
@@ -178,10 +174,16 @@ public class RoleDashboardPanel extends JPanel {
         header.setOpaque(false);
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
 
+        JPanel titleRow = new JPanel(new FlowLayout(FlowLayout.LEFT, 0, 0));
+        titleRow.setOpaque(false);
+        titleRow.setAlignmentX(Component.LEFT_ALIGNMENT);
+
+        JLabel iconLabel = createChipLabel(visual, 24, 13);
+
         JLabel titleLabel = new JLabel(title);
         titleLabel.setFont(new Font("SansSerif", Font.BOLD, 18));
         titleLabel.setForeground(TITLE_COLOR);
-        titleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
+        titleLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 1, 0));
 
         JLabel subtitleLabel = new JLabel(subtitle);
         subtitleLabel.setFont(new Font("SansSerif", Font.PLAIN, 13));
@@ -189,14 +191,18 @@ public class RoleDashboardPanel extends JPanel {
         subtitleLabel.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JPanel accentBar = new JPanel();
-        accentBar.setBackground(accent);
+        accentBar.setBackground(visual.color);
         accentBar.setPreferredSize(new Dimension(54, 4));
         accentBar.setMaximumSize(new Dimension(54, 4));
         accentBar.setAlignmentX(Component.LEFT_ALIGNMENT);
 
+        titleRow.add(iconLabel);
+        titleRow.add(Box.createHorizontalStrut(10));
+        titleRow.add(titleLabel);
+
         header.add(accentBar);
         header.add(Box.createVerticalStrut(10));
-        header.add(titleLabel);
+        header.add(titleRow);
         header.add(Box.createVerticalStrut(4));
         header.add(subtitleLabel);
 
@@ -212,7 +218,7 @@ public class RoleDashboardPanel extends JPanel {
             list.add(empty);
         } else {
             for (DashboardActivityItem item : items) {
-                list.add(buildActivityRow(item));
+                list.add(buildActivityRow(item, visual));
                 list.add(Box.createVerticalStrut(10));
             }
         }
@@ -222,48 +228,71 @@ public class RoleDashboardPanel extends JPanel {
         return card;
     }
 
-    private JPanel buildActivityRow(DashboardActivityItem item) {
-        JPanel row = new JPanel(new BorderLayout(10, 0));
+    private JPanel buildActivityRow(DashboardActivityItem item, MetricVisual sectionVisual) {
+        MetricVisual visual = resolveRowVisual(item, sectionVisual);
+        JPanel row = new JPanel(new BorderLayout(12, 0));
         row.setOpaque(false);
         row.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createLineBorder(new Color(241, 245, 249)),
-                BorderFactory.createEmptyBorder(12, 12, 12, 12)));
+                BorderFactory.createEmptyBorder(10, 12, 10, 12)));
+        row.setMaximumSize(new Dimension(Integer.MAX_VALUE, 62));
 
-        JPanel text = new JPanel();
+        JLabel iconLabel = createChipLabel(visual, 26, 14);
+        iconLabel.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+
+        JPanel text = new JPanel(new FlowLayout(FlowLayout.LEFT, 8, 0));
         text.setOpaque(false);
-        text.setLayout(new BoxLayout(text, BoxLayout.Y_AXIS));
 
         JLabel title = new JLabel(safe(item.getTitle(), "-"));
         title.setFont(new Font("SansSerif", Font.BOLD, 14));
         title.setForeground(TITLE_COLOR);
-        title.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel subtitle = new JLabel(safe(item.getSubtitle(), "-"));
         subtitle.setFont(new Font("SansSerif", Font.PLAIN, 12));
         subtitle.setForeground(SUBTITLE_COLOR);
-        subtitle.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         JLabel meta = new JLabel(safe(item.getMeta(), "-"));
         meta.setFont(new Font("SansSerif", Font.PLAIN, 11));
         meta.setForeground(new Color(100, 116, 139));
-        meta.setAlignmentX(Component.LEFT_ALIGNMENT);
 
         text.add(title);
-        text.add(Box.createVerticalStrut(2));
+        text.add(createInlineSeparator());
         text.add(subtitle);
-        text.add(Box.createVerticalStrut(4));
+        text.add(createInlineSeparator());
         text.add(meta);
+
+        JPanel content = new JPanel(new BorderLayout(12, 0));
+        content.setOpaque(false);
+        JPanel iconWrap = new JPanel(new FlowLayout(FlowLayout.CENTER, 0, 0));
+        iconWrap.setOpaque(false);
+        iconWrap.setPreferredSize(new Dimension(34, 28));
+        iconWrap.setMinimumSize(new Dimension(34, 28));
+        iconWrap.setMaximumSize(new Dimension(34, 28));
+        iconWrap.add(iconLabel);
+        content.add(iconWrap, BorderLayout.WEST);
+        content.add(text, BorderLayout.CENTER);
 
         JLabel status = new JLabel(safe(item.getStatus(), "-"));
         status.setOpaque(true);
-        status.setBackground(new Color(239, 246, 255));
-        status.setForeground(new Color(30, 64, 175));
+        StatusPalette statusPalette = resolveStatusPalette(item.getStatus());
+        status.setBackground(statusPalette.background);
+        status.setForeground(statusPalette.foreground);
         status.setFont(new Font("SansSerif", Font.BOLD, 11));
-        status.setBorder(BorderFactory.createEmptyBorder(6, 10, 6, 10));
+        status.setBorder(BorderFactory.createEmptyBorder(7, 12, 7, 12));
+        status.setPreferredSize(new Dimension(92, 34));
+        status.setHorizontalAlignment(JLabel.CENTER);
+        status.setVerticalAlignment(JLabel.CENTER);
 
-        row.add(text, BorderLayout.CENTER);
+        row.add(content, BorderLayout.CENTER);
         row.add(status, BorderLayout.EAST);
         return row;
+    }
+
+    private JLabel createInlineSeparator() {
+        JLabel separator = new JLabel("\u2022");
+        separator.setFont(new Font("SansSerif", Font.BOLD, 12));
+        separator.setForeground(new Color(148, 163, 184));
+        return separator;
     }
 
     private JPanel buildThreeColumnSections(JPanel one, JPanel two, JPanel three) {
@@ -303,19 +332,6 @@ public class RoleDashboardPanel extends JPanel {
         return role.contains("murid") || role.contains("student") || role.contains("siswa") || role.contains("trial");
     }
 
-    private String getRoleBadge() {
-        if (currentUser.isSuperAdmin()) {
-            return "SUPER ADMIN";
-        }
-        if (isCoach()) {
-            return "COACH DASHBOARD";
-        }
-        if (isStudent()) {
-            return "MURID DASHBOARD";
-        }
-        return "ADMIN DASHBOARD";
-    }
-
     private String getRoleSubtitle() {
         if (isCoach()) {
             return "Pantau form absensi, murid dalam class, dan status kerja harian Anda.";
@@ -329,4 +345,116 @@ public class RoleDashboardPanel extends JPanel {
     private String safe(String value, String fallback) {
         return value == null || value.trim().isEmpty() ? fallback : value.trim();
     }
+
+    private MetricVisual resolveMetricVisual(String label, Color fallback) {
+        String key = safe(label, "").toLowerCase();
+        if (key.contains("murid")) {
+            return new MetricVisual("\uD83D\uDC65", new Color(2, 132, 199));
+        }
+        if (key.contains("coach") || key.contains("pelatih")) {
+            return new MetricVisual("\uD83D\uDC64", new Color(22, 163, 74));
+        }
+        if (key.contains("class") || key.contains("level")) {
+            return new MetricVisual("\uD83D\uDCC5", new Color(124, 58, 237));
+        }
+        if (key.contains("grade")) {
+            return new MetricVisual("\uD83D\uDD16", new Color(249, 115, 22));
+        }
+        if (key.contains("bayar") || key.contains("gaji") || key.contains("spp")) {
+            return new MetricVisual("\uD83D\uDCB3", new Color(5, 150, 105));
+        }
+        if (key.contains("hadir") || key.contains("absensi") || key.contains("form")) {
+            return new MetricVisual("\u2713", new Color(220, 38, 38));
+        }
+        return new MetricVisual("\u25CF", fallback);
+    }
+
+    private MetricVisual resolveSectionVisual(String title, Color fallback) {
+        String key = safe(title, "").toLowerCase();
+        if (key.contains("absensi") || key.contains("form")) {
+            return new MetricVisual("\uD83D\uDCDD", new Color(14, 116, 144));
+        }
+        if (key.contains("murid")) {
+            return new MetricVisual("\uD83D\uDC65", new Color(22, 163, 74));
+        }
+        if (key.contains("coach")) {
+            return new MetricVisual("\uD83D\uDC64", new Color(249, 115, 22));
+        }
+        if (key.contains("pembayaran")) {
+            return new MetricVisual("\uD83D\uDCB3", new Color(30, 64, 175));
+        }
+        if (key.contains("info") || key.contains("catatan")) {
+            return new MetricVisual("\u2139", new Color(168, 85, 247));
+        }
+        return new MetricVisual("\u25CF", fallback);
+    }
+
+    private MetricVisual resolveRowVisual(DashboardActivityItem item, MetricVisual fallbackVisual) {
+        String key = (safe(item.getTitle(), "") + " "
+                + safe(item.getSubtitle(), "") + " "
+                + safe(item.getStatus(), "")).toLowerCase();
+        if (key.contains("lunas") || key.contains("dibayar") || key.contains("bayar")) {
+            return new MetricVisual("\uD83D\uDCB3", new Color(5, 150, 105));
+        }
+        if (key.contains("coach") || key.contains("pelatih")) {
+            return new MetricVisual("\uD83D\uDC64", new Color(249, 115, 22));
+        }
+        if (key.contains("murid") || key.contains("siswa")) {
+            return new MetricVisual("\uD83D\uDC65", new Color(2, 132, 199));
+        }
+        if (key.contains("hadir") || key.contains("absensi") || key.contains("form")) {
+            return new MetricVisual("\uD83D\uDCDD", new Color(30, 64, 175));
+        }
+        return fallbackVisual;
+    }
+
+    private JLabel createChipLabel(MetricVisual visual, int size, int fontSize) {
+        JLabel label = new JLabel(visual.symbol, javax.swing.SwingConstants.CENTER);
+        label.setOpaque(true);
+        label.setBackground(visual.color);
+        label.setForeground(Color.WHITE);
+        label.setFont(new Font("Segoe UI Symbol", Font.PLAIN, fontSize));
+        label.setHorizontalAlignment(JLabel.CENTER);
+        label.setVerticalAlignment(JLabel.CENTER);
+        label.setPreferredSize(new Dimension(size, size));
+        label.setMinimumSize(new Dimension(size, size));
+        label.setMaximumSize(new Dimension(size, size));
+        label.setBorder(BorderFactory.createEmptyBorder(0, 0, 0, 0));
+        return label;
+    }
+
+    private StatusPalette resolveStatusPalette(String status) {
+        String key = safe(status, "").toLowerCase();
+        if (key.contains("aktif") || key.contains("lunas") || key.contains("dibayar")) {
+            return new StatusPalette(new Color(220, 252, 231), new Color(21, 128, 61));
+        }
+        if (key.contains("belum") || key.contains("pending")) {
+            return new StatusPalette(new Color(255, 237, 213), new Color(194, 65, 12));
+        }
+        if (key.contains("gagal") || key.contains("telat") || key.contains("overdue")) {
+            return new StatusPalette(new Color(254, 226, 226), new Color(185, 28, 28));
+        }
+        return new StatusPalette(new Color(219, 234, 254), new Color(30, 64, 175));
+    }
+
+    private static final class MetricVisual {
+        private final String symbol;
+        private final Color color;
+
+        private MetricVisual(String symbol, Color color) {
+            this.symbol = symbol;
+            this.color = color;
+        }
+    }
+
+    private static final class StatusPalette {
+        private final Color background;
+        private final Color foreground;
+
+        private StatusPalette(Color background, Color foreground) {
+            this.background = background;
+            this.foreground = foreground;
+        }
+    }
+
 }

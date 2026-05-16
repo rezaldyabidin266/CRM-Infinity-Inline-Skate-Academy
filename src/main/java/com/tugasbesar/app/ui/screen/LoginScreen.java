@@ -43,11 +43,39 @@ public class LoginScreen extends JPanel {
 
         setLayout(new BorderLayout());
 
-        AnimatedBackgroundPanel backgroundPanel = new AnimatedBackgroundPanel();
+        JPanel backgroundPanel = createBackgroundPanel();
         backgroundPanel.setLayout(new java.awt.GridBagLayout());
         backgroundPanel.add(buildFormCard());
 
         add(backgroundPanel, BorderLayout.CENTER);
+    }
+
+    private JPanel createBackgroundPanel() {
+        BufferedImage backgroundImage = readFirstImage(new String[]{
+                "src/main/java/com/tugasbesar/app/assets/bg2.jpg"
+        });
+        if (backgroundImage == null) {
+            return new AnimatedBackgroundPanel();
+        }
+        return new LoginImageBackgroundPanel(backgroundImage);
+    }
+
+    private BufferedImage readFirstImage(String[] candidates) {
+        for (String path : candidates) {
+            File file = new File(path);
+            if (!file.exists()) {
+                continue;
+            }
+            try {
+                BufferedImage image = ImageIO.read(file);
+                if (image != null) {
+                    return image;
+                }
+            } catch (IOException ignored) {
+                // Try the next candidate.
+            }
+        }
+        return null;
     }
 
     private JPanel buildFormCard() {
@@ -316,6 +344,41 @@ public class LoginScreen extends JPanel {
         @Override
         public int getIconHeight() {
             return 30;
+        }
+    }
+
+    private static final class LoginImageBackgroundPanel extends JPanel {
+        private final BufferedImage backgroundImage;
+
+        private LoginImageBackgroundPanel(BufferedImage backgroundImage) {
+            this.backgroundImage = backgroundImage;
+            setOpaque(true);
+        }
+
+        @Override
+        public Dimension getPreferredSize() {
+            return new Dimension(960, 640);
+        }
+
+        @Override
+        protected void paintComponent(Graphics graphics) {
+            super.paintComponent(graphics);
+            Graphics2D g2 = (Graphics2D) graphics.create();
+            g2.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+            g2.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+
+            int width = getWidth();
+            int height = getHeight();
+            double scale = Math.max(width / (double) backgroundImage.getWidth(), height / (double) backgroundImage.getHeight());
+            int drawWidth = Math.max(1, (int) Math.round(backgroundImage.getWidth() * scale));
+            int drawHeight = Math.max(1, (int) Math.round(backgroundImage.getHeight() * scale));
+            int x = (width - drawWidth) / 2;
+            int y = (height - drawHeight) / 2;
+
+            g2.drawImage(backgroundImage, x, y, drawWidth, drawHeight, null);
+            g2.setColor(new Color(2, 6, 23, 135));
+            g2.fillRect(0, 0, width, height);
+            g2.dispose();
         }
     }
 

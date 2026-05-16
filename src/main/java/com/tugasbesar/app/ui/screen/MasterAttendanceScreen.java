@@ -452,9 +452,6 @@ public class MasterAttendanceScreen extends JPanel {
         }
 
         JComboBox<LevelOption> levelCombo = new JComboBox<>();
-        for (Level level : levels) {
-            levelCombo.addItem(new LevelOption(level.getUuid(), level.getName()));
-        }
 
         JTextField dateField = createDateField();
         JPanel dateFieldPanel = buildDateFieldGroup(dateField);
@@ -470,7 +467,6 @@ public class MasterAttendanceScreen extends JPanel {
 
         if (existing != null) {
             selectCoach(coachCombo, existing.getCoachUuid());
-            selectLevel(levelCombo, existing.getLevelUuid());
             if (existing.getAttendanceDate() != null) {
                 dateField.setText(existing.getAttendanceDate().toString());
             }
@@ -481,7 +477,11 @@ public class MasterAttendanceScreen extends JPanel {
             dateField.setText(LocalDate.now().toString());
         }
 
-        coachCombo.addActionListener(event -> updateCoachGradeInfo(coachGradeInfoLabel, coachCombo));
+        reloadLevelComboForCoach(levelCombo, (UserOption) coachCombo.getSelectedItem(), existing == null ? null : existing.getLevelUuid());
+        coachCombo.addActionListener(event -> {
+            updateCoachGradeInfo(coachGradeInfoLabel, coachCombo);
+            reloadLevelComboForCoach(levelCombo, (UserOption) coachCombo.getSelectedItem(), null);
+        });
         updateCoachGradeInfo(coachGradeInfoLabel, coachCombo);
 
         addFormRow(formPanel, gbc, 0, "Coach", coachCombo);
@@ -581,20 +581,87 @@ public class MasterAttendanceScreen extends JPanel {
         }
     }
 
+    private void reloadLevelComboForCoach(JComboBox<LevelOption> levelCombo, UserOption coachOption, String selectedLevelUuid) {
+        levelCombo.removeAllItems();
+        User coach = findCoachByOption(coachOption);
+        String coachGradeUuid = effectiveCoachGradeUuid(coach);
+        String coachGradeName = effectiveCoachGradeName(coach);
+
+        for (Level level : levels) {
+            if (sameGrade(level, coachGradeUuid, coachGradeName)) {
+                levelCombo.addItem(new LevelOption(level.getUuid(), level.getName()));
+            }
+        }
+
+        if (selectedLevelUuid != null) {
+            selectLevel(levelCombo, selectedLevelUuid);
+        }
+        if (levelCombo.getSelectedItem() == null && levelCombo.getItemCount() > 0) {
+            levelCombo.setSelectedIndex(0);
+        }
+    }
+
+    private boolean sameGrade(Level level, String gradeUuid, String gradeName) {
+        if (level == null) {
+            return false;
+        }
+        if (gradeUuid != null && !gradeUuid.trim().isEmpty() && gradeUuid.equals(level.getGradeUuid())) {
+            return true;
+        }
+        return gradeName != null
+                && !gradeName.trim().isEmpty()
+                && level.getGradeName() != null
+                && gradeName.trim().equalsIgnoreCase(level.getGradeName().trim());
+    }
+
+    private User findCoachByOption(UserOption option) {
+        if (option == null || option.uuid == null) {
+            return null;
+        }
+        for (User coach : coachUsers) {
+            if (option.uuid.equals(coach.getUuid())) {
+                return coach;
+            }
+        }
+        return null;
+    }
+
     private void updateCoachGradeInfo(JLabel label, JComboBox<UserOption> coachCombo) {
         UserOption option = (UserOption) coachCombo.getSelectedItem();
         if (option == null || option.uuid == null || option.uuid.trim().isEmpty()) {
             label.setText("Grade coach: -");
             return;
         }
-        for (User coach : coachUsers) {
-            if (option.uuid.equals(coach.getUuid())) {
-                String grade = coach.getGradeName() == null || coach.getGradeName().trim().isEmpty() ? "-" : coach.getGradeName();
-                label.setText("Grade coach: " + grade);
-                return;
+        User coach = findCoachByOption(option);
+        label.setText("Grade coach: " + safeText(effectiveCoachGradeName(coach)));
+    }
+
+    private String effectiveCoachGradeUuid(User coach) {
+        Level coachLevel = coach == null ? null : findLevelByUuid(coach.getLevelUuid());
+        if (coachLevel != null && coachLevel.getGradeUuid() != null && !coachLevel.getGradeUuid().trim().isEmpty()) {
+            return coachLevel.getGradeUuid();
+        }
+        return coach == null ? null : coach.getGradeUuid();
+    }
+
+    private String effectiveCoachGradeName(User coach) {
+        Level coachLevel = coach == null ? null : findLevelByUuid(coach.getLevelUuid());
+        if (coachLevel != null && coachLevel.getGradeName() != null && !coachLevel.getGradeName().trim().isEmpty()) {
+            return coachLevel.getGradeName();
+        }
+        return coach == null ? "-" : coach.getGradeName();
+    }
+
+    private Level findLevelByUuid(String levelUuid) {
+        if (levelUuid == null || levelUuid.trim().isEmpty()) {
+            return null;
+        }
+        for (Level level : levels) {
+            if (levelUuid.equals(level.getUuid())) {
+                return level;
             }
         }
-        label.setText("Grade coach: -");
+        return null;
     }
 
     private LocalDate readDateField(JTextField field) {
@@ -1294,7 +1361,8 @@ public class MasterAttendanceScreen extends JPanel {
     private void setStatusSuccess(String message) {
         statusLabel.setOpaque(true);
         statusLabel.setBackground(new Color(220, 252, 231));
-        statusLabel.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+        statusLabel.setHorizontalAlignment(JLabel.LEFT);
+        statusLabel.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
         statusLabel.setForeground(new Color(22, 163, 74));
         statusLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         statusLabel.setText(message);
@@ -1303,7 +1371,8 @@ public class MasterAttendanceScreen extends JPanel {
     private void setStatusError(String message) {
         statusLabel.setOpaque(true);
         statusLabel.setBackground(new Color(254, 226, 226));
-        statusLabel.setBorder(BorderFactory.createEmptyBorder(8, 12, 8, 12));
+        statusLabel.setHorizontalAlignment(JLabel.LEFT);
+        statusLabel.setBorder(BorderFactory.createEmptyBorder(10, 14, 10, 14));
         statusLabel.setForeground(new Color(220, 38, 38));
         statusLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         statusLabel.setText(message);

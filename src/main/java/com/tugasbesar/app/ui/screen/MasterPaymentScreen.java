@@ -1338,6 +1338,7 @@ public class MasterPaymentScreen extends JPanel {
 
     private void setStatus(String message, boolean error) {
         statusLabel.setText(message == null || message.trim().isEmpty() ? " " : message);
+        statusLabel.setHorizontalAlignment(JLabel.LEFT);
         statusLabel.setFont(new Font("SansSerif", Font.BOLD, 16));
         statusLabel.setForeground(error ? new Color(220, 38, 38) : new Color(22, 163, 74));
         statusLabel.setOpaque(true);
