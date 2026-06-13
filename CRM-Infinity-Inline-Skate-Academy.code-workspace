@@ -1,0 +1,15 @@
+{
+  "folders": [
+    {
+      "name": "Desktop App",
+      "path": ".\\CRM-Infinity-Inline-Skate-Academy"
+    },
+    {
+      "name": "REST API",
+      "path": ".\\CRM-Infinity-Inline-Skate-Academy-REST-API"
+    }
+  ],
+  "settings": {
+    "java.configuration.updateBuildConfiguration": "interactive"
+  }
+}
